@@ -1,7 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import nodemailer from "nodemailer";
-import { Resend } from "resend";
 
 const ANSI_REGEX = /\u001b\[[0-9;]*m/g;
 
@@ -262,16 +260,23 @@ async function sendEmail({ subject, html, text }) {
 
   if (resendApiKey && resendFromEmail) {
     try {
-      const resend = new Resend(resendApiKey);
-      const res = await resend.emails.send({
-        from: resendFromEmail,
-        to: [recipient],
-        subject,
-        text,
-        html,
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: resendFromEmail,
+          to: [recipient],
+          subject,
+          text,
+          html,
+        }),
       });
-      if (res.error) {
-        throw new Error(res.error.message);
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errBody}`);
       }
       console.log(`[send-test-report] Report emailed via Resend to ${recipient}.`);
       return;
@@ -284,6 +289,7 @@ async function sendEmail({ subject, html, text }) {
   }
 
   if (gmailUser && gmailPassword) {
+    const { default: nodemailer } = await import("nodemailer");
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailUser, pass: gmailPassword },
