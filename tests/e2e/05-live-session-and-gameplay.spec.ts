@@ -45,7 +45,7 @@ test.describe("Live Classroom Session & Real-time Student Gameplay", () => {
     teacherPage.on("websocket", (ws) => {
       ws.on("framereceived", (frame) => {
         const text = typeof frame.payload === "string" ? frame.payload : "";
-        if (text.includes("phx_reply") && text.includes("ok")) {
+        if (text.includes("Subscribed to PostgreSQL")) {
           resolveSubscribed?.();
         }
       });
@@ -54,7 +54,7 @@ test.describe("Live Classroom Session & Real-time Student Gameplay", () => {
     await teacherPage.goto(`/dashboard/games/${gameId}/live`);
     await expect(teacherPage.getByText(/مباشر الآن|Live Now/i)).toBeVisible({ timeout: 15_000 });
     await expect(teacherPage.getByText(/لا يوجد طلاب متصلين|No students connected/i)).toBeVisible();
-    await Promise.race([realtimeReady, teacherPage.waitForTimeout(5_000)]);
+    await Promise.race([realtimeReady, teacherPage.waitForTimeout(8_000)]);
 
     // 2. Unauthenticated Student joins in a completely separate BrowserContext
     const studentContext = await browser.newContext({ baseURL: "http://localhost:3000" });

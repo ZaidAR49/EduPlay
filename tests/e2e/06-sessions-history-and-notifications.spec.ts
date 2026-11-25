@@ -53,7 +53,10 @@ test.describe("Sessions History & Admin System Notifications", () => {
       timeout: 10_000,
     });
 
-    const card = page.locator("div.rounded-2xl").filter({ hasText: seededGameTitle }).first();
+    const card = page
+      .locator("div.rounded-2xl")
+      .filter({ has: page.getByRole("heading", { name: seededGameTitle }) })
+      .first();
     await card.getByRole("link", { name: /عرض التفاصيل|View Details/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/dashboard/sessions/${seededPlayId}$`), {
