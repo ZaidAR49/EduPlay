@@ -73,9 +73,16 @@ export function KpisClient({ kpis }: { kpis: any }) {
     ? a.publishedGames.replace("{count}", String(kpis.publishedGames))
     : `${kpis.publishedGames} ${isRTL ? "منشورة" : "published"}`
 
-  const completionSub = a?.completionRate
-    ? a.completionRate.replace("{rate}", String(kpis.completionRate))
-    : `${kpis.completionRate}% ${isRTL ? "إكمال" : "completion"}`
+  const completionSub =
+    kpis.completionRate === null
+      ? (isRTL ? "إجمالي تاريخي (آخر 30 يوم فارغ)" : "Lifetime plays (30d logs purged)")
+      : (a?.completionRate
+          ? a.completionRate.replace("{rate}", String(kpis.completionRate))
+          : `${kpis.completionRate}% ${isRTL ? "إكمال" : "completion"}`)
+
+  const usersSub = isRTL
+    ? `${kpis.activeUsers7d ?? 0} نشط (7 أيام) · ${kpis.blockedUsers ?? 0} محظور`
+    : `${kpis.activeUsers7d ?? 0} active (7d) · ${kpis.blockedUsers ?? 0} blocked`
 
   return (
     <section>
@@ -88,6 +95,7 @@ export function KpisClient({ kpis }: { kpis: any }) {
           icon={Users}
           value={kpis.totalUsers}
           label={a?.totalUsers || (isRTL ? "إجمالي المستخدمين" : "Total Users")}
+          sub={usersSub}
           iconBg="bg-indigo-50"
           iconColor="text-indigo-600"
         />

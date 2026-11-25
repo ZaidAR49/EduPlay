@@ -1,13 +1,14 @@
 "use server";
 
-import { auth } from "@/auth";
+import { verifyActiveSessionUser } from "@/lib/auth/rbac";
 import { executeAiJson, executeAiText } from "@/lib/services/ai.service";
 
 export async function improveTextAction(text: string, context: string): Promise<string> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+  const authCheck = await verifyActiveSessionUser();
+  if (!authCheck.ok) {
+    throw new Error(authCheck.error);
   }
+  const userId = authCheck.user.id;
 
   const prompt = `You are an expert copywriter and educator for educational applications.
 Your task is to enhance and polish the provided text for: "${context}".
@@ -21,7 +22,7 @@ CRITICAL RULES:
 3. OUTPUT FORMAT: Output ONLY the improved text. Do NOT include explanations, preambles, notes, or surrounding quotes.`;
 
   const result = await executeAiText({
-    userId: session.user.id,
+    userId,
     action: "improveTextAction",
     task: "text",
     prompt,
@@ -36,10 +37,11 @@ CRITICAL RULES:
 export async function improveOrganizationFormAction(
   formData: Record<string, string>
 ): Promise<Record<string, string>> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+  const authCheck = await verifyActiveSessionUser();
+  if (!authCheck.ok) {
+    throw new Error(authCheck.error);
   }
+  const userId = authCheck.user.id;
 
   const prompt = `You are an expert copywriter and educator for educational applications.
 Your task is to enhance all text fields in the following organization settings form.
@@ -54,7 +56,7 @@ CRITICAL RULES:
 4. OUTPUT FORMAT: Output ONLY valid raw JSON matching the original keys. No markdown code fences (no \`\`\`), no preamble, no commentary.`;
 
   const result = await executeAiJson<Record<string, string>>({
-    userId: session.user.id,
+    userId,
     action: "improveOrganizationFormAction",
     task: "text",
     prompt,

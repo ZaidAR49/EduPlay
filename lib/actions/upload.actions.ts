@@ -71,12 +71,17 @@ export async function uploadLogoAction(formData: FormData) {
 
   await s3Client.send(command);
 
-  // 7. Construct Public URL
-  const endpoint = process.env.SUPABASE_S3_ENDPOINT!;
-  const urlParts = new URL(endpoint);
-  const projectId = urlParts.hostname.split('.')[0]; 
-  
-  const publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${key}`;
+  // 7. Construct Public URL (prefer NEXT_PUBLIC_SUPABASE_URL so local/CI and cloud Supabase both work)
+  const supabasePublicBase = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
+  let publicUrl: string;
+  if (supabasePublicBase) {
+    publicUrl = `${supabasePublicBase}/storage/v1/object/public/${bucketName}/${key}`;
+  } else {
+    const endpoint = process.env.SUPABASE_S3_ENDPOINT!;
+    const urlParts = new URL(endpoint);
+    const projectId = urlParts.hostname.split('.')[0];
+    publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${key}`;
+  }
 
   return publicUrl;
 }

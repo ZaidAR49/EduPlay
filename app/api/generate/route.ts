@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { verifyActiveSessionUser } from "@/lib/auth/rbac";
 import {
   AiConfigurationError,
   AiQuotaExceededError,
@@ -10,9 +10,9 @@ export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new Response("Unauthorized", { status: 401 });
+    const authCheck = await verifyActiveSessionUser();
+    if (!authCheck.ok) {
+      return new Response(authCheck.error, { status: authCheck.status });
     }
 
     const { idea, questionCount, locale } = await req.json();
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     const { stream } = await executeAiGameStream({
-      userId: session.user.id,
+      userId: authCheck.user.id,
       idea,
       questionCount,
       locale: resolvedLocale,

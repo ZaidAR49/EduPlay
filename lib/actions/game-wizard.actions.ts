@@ -2,6 +2,7 @@
 
 import { revalidatePath, unstable_cache, updateTag } from "next/cache";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { logActivity } from "@/lib/services/activity.service";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { games, scenarios, choices, NewGame, classroomPlays } from "@/lib/db/schema";
@@ -186,6 +187,19 @@ export async function saveFullGameAction(
     });
     await posthog.shutdown();
   }
+
+  await logActivity({
+    actorId: user.id,
+    targetUserId: user.id,
+    action: gameId ? "game_updated" : "game_created",
+    entityType: "game",
+    entityId: finalGameId,
+    metadata: {
+      title: gameData.title,
+      scenarioCount: scenariosData.length,
+      status: gameData.status,
+    },
+  });
 
   return { success: true, gameId: finalGameId };
 }

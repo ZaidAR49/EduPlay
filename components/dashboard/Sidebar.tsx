@@ -23,6 +23,7 @@ import AppLogo from "@/app/icon.png"
 import { NotificationsMenu } from "./NotificationsMenu"
 import { useLocale } from "@/lib/i18n/LanguageContext"
 import { LanguageDropdown } from "@/components/shared/LanguageDropdown"
+import { isStaffRole } from "@/lib/auth/permissions"
 
 export function Sidebar({ user }: { user?: any }) {
   const pathname = usePathname()
@@ -133,7 +134,7 @@ export function Sidebar({ user }: { user?: any }) {
           })}
 
           {/* Admin panel shortcut */}
-          {user?.role && ["super_admin", "admin", "viewer"].includes(user.role) && (
+          {isStaffRole(user?.role) && (
             <>
               <div className="border-t border-gray-100 my-1.5" />
               <Link

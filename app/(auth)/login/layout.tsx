@@ -3,27 +3,28 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { isStaffRole } from "@/lib/auth/permissions";
 
 export default async function LoginLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
-  if (session?.user?.id) {
+  if (session?.user?.id || session?.user?.email) {
+    const isUuid =
+      typeof session.user.id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(session.user.id);
+
     const dbUser = await db.query.users.findFirst({
-      where: eq(users.id, session.user.id),
+      where: isUuid ? eq(users.id, session.user.id) : eq(users.email, session.user.email!),
       columns: { isLocked: true, role: true }
     });
 
     if (dbUser?.isLocked) {
-      // If they are locked, log them out immediately using the client component
       const { ForceSignout } = await import("@/components/auth/ForceSignout");
       return <ForceSignout />;
     }
 
-    // Redirect authenticated, non-locked users directly to their destination.
-    // We CANNOT redirect to /login/redirect here because that route is also
-    // nested under this layout, which would cause an infinite redirect loop.
     const role = dbUser?.role ?? (session.user as any).role;
-    if (["super_admin", "admin", "viewer"].includes(role as string)) {
+    if (isStaffRole(role)) {
       redirect("/admin");
     }
     redirect("/dashboard");

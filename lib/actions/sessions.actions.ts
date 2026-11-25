@@ -2,6 +2,7 @@
 
 import { revalidatePath, unstable_cache, updateTag } from "next/cache";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { logActivity } from "@/lib/services/activity.service";
 import { eq, inArray, desc, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { games, classroomPlays, players } from "@/lib/db/schema";
@@ -78,7 +79,7 @@ const getCachedSessionDetails = (sessionId: string, userId: string) => unstable_
         if (!p.isFinished && !duration && p.startedAt) {
           duration = Math.floor((new Date().getTime() - p.startedAt.getTime()) / 1000);
         }
-        
+
         return {
           id: p.id,
           name: p.name,
@@ -132,7 +133,16 @@ export async function deleteSessionsAction(sessionIds: string[]) {
     event: "sessions_deleted",
     properties: { count: sessionIds.length },
   });
-  await posthog.shutdown();
+  await Promise.all([
+    posthog.shutdown(),
+    logActivity({
+      actorId: user.id,
+      targetUserId: user.id,
+      action: "sessions_deleted",
+      entityType: "session",
+      metadata: { count: sessionIds.length },
+    }),
+  ]);
 }
 
 /**
@@ -200,7 +210,7 @@ export async function getLiveSessionDataAction(gameId: string) {
       if (!p.isFinished && !duration && p.startedAt) {
         duration = Math.floor((new Date().getTime() - p.startedAt.getTime()) / 1000);
       }
-      
+
       return {
         id: p.id,
         name: p.name,

@@ -5,12 +5,21 @@ import { Shield, UserPlus, Loader2 } from "lucide-react"
 import { AnimatePresence } from "framer-motion"
 import { ConfirmModal } from "@/components/shared/ConfirmModal"
 import { useLocale } from "@/lib/i18n/LanguageContext"
+import { hasPermission } from "@/lib/auth/permissions"
 import { addAdminAction, toggleAdminBlockAction, removeAdminAction, editAdminAction } from "@/lib/actions/admin.actions"
 import { AddAdminModal } from "./AddAdminModal"
 import { EditAdminModal } from "./EditAdminModal"
 import { AdminListItem } from "./AdminListItem"
 
-export function SettingsClient({ userRole, initialAdmins }: { userRole: string; initialAdmins: any[] }) {
+export function SettingsClient({
+  userRole,
+  currentUserId,
+  initialAdmins,
+}: {
+  userRole: string
+  currentUserId: string
+  initialAdmins: any[]
+}) {
   const { t } = useLocale()
   const [isPending, startTransition] = useTransition()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -21,7 +30,8 @@ export function SettingsClient({ userRole, initialAdmins }: { userRole: string; 
     payload?: any
   }>({ type: null })
 
-  const superAdminCount = initialAdmins.filter((a) => a.role === "super_admin").length
+  const canManageStaff = hasPermission(userRole, "staff:manage")
+  const adminCount = initialAdmins.filter((a) => a.role === "admin").length
 
   const handleAddAdminSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -85,7 +95,7 @@ export function SettingsClient({ userRole, initialAdmins }: { userRole: string; 
           <h2 className="text-2xl font-bold text-slate-800">{t.adminSettings.pageTitle}</h2>
           <p className="text-slate-500 mt-1">{t.adminSettings.pageSubtitle}</p>
         </div>
-        {userRole === "super_admin" && (
+        {canManageStaff && (
           <button
             onClick={() => { setActionError(null); setIsAddModalOpen(true) }}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap shrink-0"
@@ -115,7 +125,8 @@ export function SettingsClient({ userRole, initialAdmins }: { userRole: string; 
               key={admin.id}
               admin={admin}
               userRole={userRole}
-              isLastSuperAdmin={admin.role === "super_admin" && superAdminCount <= 1}
+              isSelf={admin.id === currentUserId}
+              isLastAdmin={admin.role === "admin" && adminCount <= 1}
               onEdit={(a) => { setActionError(null); setEditTarget(a) }}
               onBlock={(a) => setConfirmAction({ type: a.status === "active" ? "block" : "unblock", payload: a })}
               onDelete={(a) => setConfirmAction({ type: "delete", payload: a })}
@@ -142,7 +153,8 @@ export function SettingsClient({ userRole, initialAdmins }: { userRole: string; 
             admin={editTarget}
             isPending={isPending}
             actionError={actionError}
-            superAdminCount={superAdminCount}
+            adminCount={adminCount}
+            isSelf={editTarget.id === currentUserId}
             onClose={() => setEditTarget(null)}
             onSubmit={handleEditSubmit}
           />

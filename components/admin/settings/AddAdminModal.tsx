@@ -56,9 +56,13 @@ export function AddAdminModal({ isPending, actionError, onClose, onSubmit }: Add
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t.adminSettings.labelRole}</label>
-              <select name="role" className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white">
-                <option value="super_admin">{t.adminSettings.optionSuperAdminDesc}</option>
+              <select
+                name="role"
+                defaultValue="editor"
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+              >
                 <option value="admin">{t.adminSettings.optionAdminDesc}</option>
+                <option value="editor">{t.adminSettings.optionEditorDesc}</option>
                 <option value="viewer">{t.adminSettings.optionViewerDesc}</option>
               </select>
             </div>

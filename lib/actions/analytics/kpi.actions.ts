@@ -2,45 +2,89 @@
 
 import { db } from "@/lib/db";
 import { users, games, classroomPlays, players, usageEvents } from "@/lib/db/schema";
-import { eq, count, and, sql } from "drizzle-orm";
-import { requireDashboardAccess } from "@/lib/auth/rbac";
+import { eq, count, and, sql, isNull, or, gt } from "drizzle-orm";
+import { requirePermission } from "@/lib/auth/rbac";
 import { unstable_noStore as noStore } from "next/cache";
 
-/** KPI stat cards (DB for absolute totals) */
+/** KPI stat cards (DB for absolute totals, excluding blocked/deleted inaccuracies) */
 export async function getAdminKpiAction() {
   noStore();
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
-  const totalUsers = await db.select({ count: count() }).from(users).where(eq(users.role, "user"));
-  const proUsers = await db.select({ count: count() }).from(users).where(and(eq(users.role, "user"), eq(users.isSubscribed, true)));
-  const totalGames = await db.select({ count: count() }).from(games);
-  const publishedGames = await db.select({ count: count() }).from(games).where(eq(games.status, "published"));
-  const totalSessions = await db.select({ count: count() }).from(classroomPlays);
-  const totalPlayers = await db.select({ count: count() }).from(players);
-  const completedPlayers = await db.select({ count: count() }).from(players).where(eq(players.isFinished, true));
+  const now = new Date();
+  const [
+    userCounts,
+    proUsers,
+    gameCounts,
+    totalSessions,
+    recentPlayers,
+    completedPlayers,
+  ] = await Promise.all([
+    db
+      .select({
+        totalUsers: count(),
+        activeUsers7d: sql<number>`count(*) FILTER (WHERE ${users.isLocked} = false AND COALESCE(${users.lastActiveAt}, ${users.lastLoginAt}) >= now() - INTERVAL '7 days')::int`,
+        blockedUsers: sql<number>`count(*) FILTER (WHERE ${users.isLocked} = true)::int`,
+      })
+      .from(users)
+      .where(and(eq(users.role, "user"), isNull(users.deletedAt))),
+
+    db
+      .select({ count: count() })
+      .from(users)
+      .where(
+        and(
+          eq(users.role, "user"),
+          eq(users.isSubscribed, true),
+          eq(users.isLocked, false),
+          isNull(users.deletedAt),
+          or(isNull(users.subscriptionExpiresAt), gt(users.subscriptionExpiresAt, now))
+        )
+      ),
+
+    db
+      .select({
+        totalGames: count(),
+        publishedGames: sql<number>`count(*) FILTER (WHERE ${games.status} = 'published')::int`,
+        lifetimePlays: sql<number>`COALESCE(SUM(${games.playCount}), 0)::int`,
+      })
+      .from(games)
+      .where(isNull(games.deletedAt)),
+
+    db.select({ count: count() }).from(classroomPlays),
+    db.select({ count: count() }).from(players),
+    db.select({ count: count() }).from(players).where(eq(players.isFinished, true)),
+  ]);
+
+  const recentPlayerCount = recentPlayers[0].count;
+  const lifetimePlays = Number(gameCounts[0]?.lifetimePlays ?? 0);
 
   return {
-    totalUsers: totalUsers[0].count,
+    totalUsers: userCounts[0]?.totalUsers ?? 0,
+    activeUsers7d: Number(userCounts[0]?.activeUsers7d ?? 0),
+    blockedUsers: Number(userCounts[0]?.blockedUsers ?? 0),
     proUsers: proUsers[0].count,
-    totalGames: totalGames[0].count,
-    publishedGames: publishedGames[0].count,
+    totalGames: gameCounts[0]?.totalGames ?? 0,
+    publishedGames: Number(gameCounts[0]?.publishedGames ?? 0),
     totalSessions: totalSessions[0].count,
-    totalPlayers: totalPlayers[0].count,
+    totalPlayers: Math.max(lifetimePlays, recentPlayerCount),
+    recentPlayersCount: recentPlayerCount,
     completionRate:
-      totalPlayers[0].count > 0
-        ? Math.round((completedPlayers[0].count / totalPlayers[0].count) * 100)
-        : 0,
+      recentPlayerCount > 0
+        ? Math.round((completedPlayers[0].count / recentPlayerCount) * 100)
+        : null,
   };
 }
 
 /** Game status breakdown (DB) */
 export async function getGameStatusBreakdownAction() {
   noStore();
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const rows = await db
     .select({ status: games.status, count: count() })
     .from(games)
+    .where(isNull(games.deletedAt))
     .groupBy(games.status);
 
   const STATUS_LABELS: Record<string, string> = {
@@ -59,7 +103,7 @@ export async function getGameStatusBreakdownAction() {
 /** Total AI tokens used platform-wide */
 export async function getPlatformAiUsageAction() {
   noStore();
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await db
     .select({

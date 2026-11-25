@@ -11,7 +11,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <AdminSidebar user={{ name: adminName, image: dbUser.image ?? null }} />
+      <AdminSidebar
+        user={{ name: adminName, image: dbUser.image ?? null }}
+        userRole={dbUser.role as string}
+      />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 md:ps-64 rtl:md:pr-64 ltr:md:pl-64 transition-all">

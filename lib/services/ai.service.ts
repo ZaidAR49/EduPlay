@@ -16,6 +16,7 @@ import {
   getConfiguredAiProviders,
 } from "@/lib/ai/providers.config";
 import { getAiUsageAndLimit, recordAiUsage } from "@/lib/services/usage.service";
+import { logActivity, touchUserLastActive } from "@/lib/services/activity.service";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -228,6 +229,22 @@ async function finalizeAiUsageAndTelemetry(
     failedProviders: meta.failures.map((f) => f.provider),
     ...request.usageMetadata,
   });
+
+  await Promise.all([
+    touchUserLastActive(request.userId, undefined, true),
+    logActivity({
+      actorId: request.userId,
+      targetUserId: request.userId,
+      action: request.posthogEvent || "ai_text_generated",
+      entityType: "ai",
+      metadata: {
+        action: request.action,
+        tokensUsed,
+        provider: meta.provider,
+        model: meta.model,
+      },
+    }),
+  ]);
 
   if (request.posthogEvent) {
     await trackPostHogAiEvent(request.userId, request.posthogEvent, {
@@ -484,14 +501,36 @@ export async function executeAiGameStream(
         controller.enqueue(encoder.encode(formatAiStreamMetadataTrailer({ tokensUsed })));
         controller.close();
 
-        await recordUsageSafely(request.userId, tokensUsed, buildUsageMetadata());
+        await Promise.all([
+          recordUsageSafely(request.userId, tokensUsed, buildUsageMetadata()),
+          touchUserLastActive(request.userId, undefined, true),
+          logActivity({
+            actorId: request.userId,
+            targetUserId: request.userId,
+            action: "ai_game_generated",
+            entityType: "ai",
+            metadata: {
+              tokensUsed,
+              questionCount: request.questionCount,
+              provider: verified.session.provider,
+              model: verified.session.model,
+            },
+          }),
+          trackPostHogAiEvent(request.userId, "ai_game_generated", {
+            tokensUsed,
+            questionCount: request.questionCount,
+            provider: verified.session.provider,
+            model: verified.session.model,
+            fallbackUsed,
+          }),
+        ]);
       } catch (err) {
         controller.error(err);
       }
     },
     async cancel() {
       // Cancelled streams never consume user token quota
-      await verified.iterator.return?.().catch(() => {});
+      await verified.iterator.return?.().catch(() => { });
     },
   });
 

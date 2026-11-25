@@ -34,7 +34,7 @@ export async function updateUserAction(data: { name?: string; locale?: string })
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
-  
+
   return { success: true };
 }
 
@@ -59,15 +59,15 @@ export async function deleteUserAccountAction() {
   try {
     const sessionUser = await requireAuth();
 
-    // If user is super_admin, verify they are not the only one
-    if (sessionUser.role === "super_admin") {
-      const superAdmins = await db.query.users.findMany({
-        where: eq(users.role, "super_admin"),
+    // If user is admin, verify they are not the only one
+    if (sessionUser.role === "admin") {
+      const admins = await db.query.users.findMany({
+        where: eq(users.role, "admin"),
         columns: { id: true },
       });
 
-      if (superAdmins.length <= 1) {
-        return { success: false, error: "لا يمكنك حذف حسابك لأنك المشرف العام الوحيد. الرجاء تعيين مشرف عام آخر أولاً." };
+      if (admins.length <= 1) {
+        return { success: false, error: "لا يمكنك حذف حسابك لأنك المسؤول الوحيد. الرجاء تعيين مسؤول آخر أولاً." };
       }
     }
 

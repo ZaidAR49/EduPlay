@@ -5,6 +5,8 @@ import { Megaphone, UserSquare2, Trash2, Send, Plus, Loader2 } from "lucide-reac
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useLocale } from "@/lib/i18n/LanguageContext";
+import { hasPermission } from "@/lib/auth/permissions";
+import { formatAdminDate } from "@/lib/utils";
 import { 
   getSystemAnnouncementsAction, 
   createSystemAnnouncementAction, 
@@ -18,6 +20,8 @@ import {
 
 export default function NotificationsClient({ userRole }: { userRole: string }) {
   const { t, locale } = useLocale();
+  const canWrite = hasPermission(userRole, "notifications:write");
+  const canPurge = hasPermission(userRole, "notifications:purge");
   const [activeTab, setActiveTab] = useState<"system" | "user">("system");
   const [isLoading, setIsLoading] = useState(true);
   
@@ -209,7 +213,7 @@ export default function NotificationsClient({ userRole }: { userRole: string }) 
               {activeTab === "system" ? t.adminNotifications.addSystemTitle : t.adminNotifications.addUserTitle}
             </h2>
 
-            {userRole === "viewer" ? (
+            {!canWrite ? (
               <div className="text-sm text-slate-500 text-center py-8">
                 {t.adminNotifications.viewerNotice}
               </div>
@@ -367,7 +371,7 @@ export default function NotificationsClient({ userRole }: { userRole: string }) 
               <h2 className="text-lg font-semibold text-slate-800">
                 {activeTab === "system" ? t.adminNotifications.activeSystemTitle : t.adminNotifications.activeUserTitle}
               </h2>
-              {userRole !== "viewer" && ((activeTab === "system" && systemAnnouncements.length > 0) || (activeTab === "user" && userNotifications.length > 0)) && (
+              {canPurge && ((activeTab === "system" && systemAnnouncements.length > 0) || (activeTab === "user" && userNotifications.length > 0)) && (
                 <button
                   onClick={confirmDeleteAll}
                   disabled={isSubmitting}
@@ -416,7 +420,7 @@ export default function NotificationsClient({ userRole }: { userRole: string }) 
                         <h3 className="font-semibold text-slate-800 truncate">{announcement.title}</h3>
                         <p className="text-sm text-slate-600 truncate mt-1">{announcement.body}</p>
                       </div>
-                      {userRole !== "viewer" && (
+                      {canWrite && (
                         <div className="flex shrink-0">
                           <button
                             onClick={() => handleDelete(announcement.id, "system")}
@@ -443,8 +447,8 @@ export default function NotificationsClient({ userRole }: { userRole: string }) 
                           <span className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md font-medium">
                             {userTypeLabels[notification.type] || notification.type}
                           </span>
-                          <span className="text-xs text-slate-400">
-                            {new Date(notification.createdAt).toLocaleDateString(locale === "ar" ? "ar-u-nu-latn" : "en-US")}
+                          <span className="text-xs text-slate-400" suppressHydrationWarning>
+                            {formatAdminDate(notification.createdAt, locale, { includeTime: true })}
                           </span>
                         </div>
                         <h3 className="font-semibold text-slate-800 truncate">{notification.title}</h3>
@@ -461,7 +465,7 @@ export default function NotificationsClient({ userRole }: { userRole: string }) 
                           <div className="font-medium text-slate-700">{user?.name || t.adminNotifications.unknownUser}</div>
                           <div className="text-slate-400 text-xs font-mono">{user?.email || notification.userId}</div>
                         </div>
-                        {userRole !== "viewer" && (
+                        {canWrite && (
                           <button
                             onClick={() => handleDelete(notification.id, "user")}
                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"

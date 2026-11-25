@@ -1,7 +1,4 @@
-# Project Name 
-"EduPlay"
-
-# Decision Hero — AI Agent Rules
+# EduPlay — AI Agent Rules
 
 > These rules govern all AI-assisted development on this project.
 > Violations are treated as bugs. Read everything before writing a single line of code.
@@ -10,7 +7,7 @@
 
 ## 1. Project Overview
 
-**Decision Hero** is an educational game platform where teachers create scenario-based games and students play them without accounts. The project is a **Next.js 16** app using **TypeScript**, **Supabase/Postgres** for the database, and **Auth.js (NextAuth)** for authentication.
+**EduPlay** is an educational game platform where teachers create scenario-based games and students play them without accounts. The project is a **Next.js 16** app using **TypeScript**, **Supabase/Postgres** for the database, and **Auth.js (NextAuth)** for authentication.
 
 **Current mission:** Convert this static platform into a **dynamic, professional-grade** platform.
 

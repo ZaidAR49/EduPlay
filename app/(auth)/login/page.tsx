@@ -19,7 +19,7 @@ export default function LoginPage() {
     await signIn("google", { callbackUrl: "/login/redirect" })
   }
 
-  const termsParts = t.login.termsNotice.split("{termsLink}")
+  const noticeSegments = t.login.termsNotice.split(/(\{termsLink\}|\{privacyLink\})/)
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -110,14 +110,31 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-sm text-gray-500 leading-relaxed">
-            {termsParts[0]}
-            <Link
-              href="/policies"
-              className="text-emerald-600 hover:underline font-medium"
-            >
-              {t.login.termsLinkText}
-            </Link>
-            {termsParts[1] || ""}
+            {noticeSegments.map((segment, index) => {
+              if (segment === "{termsLink}") {
+                return (
+                  <Link
+                    key={index}
+                    href="/terms"
+                    className="text-emerald-600 hover:underline font-medium"
+                  >
+                    {t.login.termsLinkText}
+                  </Link>
+                )
+              }
+              if (segment === "{privacyLink}") {
+                return (
+                  <Link
+                    key={index}
+                    href="/privacy"
+                    className="text-emerald-600 hover:underline font-medium"
+                  >
+                    {t.login.privacyLinkText}
+                  </Link>
+                )
+              }
+              return <span key={index}>{segment}</span>
+            })}
           </p>
         </div>
       </motion.div>

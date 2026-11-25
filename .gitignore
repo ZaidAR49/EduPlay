@@ -134,3 +134,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Playwright & test outputs
+playwright-report/
+test-results/
+blob-report/
+.env.test
+
+# Local Supabase runtime state
+supabase/.temp/

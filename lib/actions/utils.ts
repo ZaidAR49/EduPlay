@@ -9,10 +9,12 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { isStaffRole } from "@/lib/auth/permissions";
+import { touchUserLastActive } from "@/lib/services/activity.service";
 
 /**
- * Ensures the user is authenticated, redirecting to sign in if not.
- * Returns the authenticated user object.
+ * Ensures the user is authenticated and not blocked, redirecting otherwise.
+ * Also throttles updates to users.last_active_at using the single DB lookup.
  */
 export const requireAuth = cache(async () => {
   const session = await auth();
@@ -21,56 +23,63 @@ export const requireAuth = cache(async () => {
   }
 
   try {
-    // Fetch fresh user from DB to check for real-time locks and subscription
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(session.user.id);
     const dbUser = await db.query.users.findFirst({
       where: isUuid ? eq(users.id, session.user.id) : eq(users.email, session.user.email!),
-      columns: { isLocked: true, role: true, isSubscribed: true, subscriptionPlan: true, locale: true }
+      columns: {
+        id: true,
+        isLocked: true,
+        deletedAt: true,
+        role: true,
+        isSubscribed: true,
+        subscriptionPlan: true,
+        locale: true,
+        lastActiveAt: true,
+      }
     });
 
     if (dbUser?.isLocked) {
       redirect("/blocked");
     }
+    if (dbUser?.deletedAt) {
+      redirect("/unauthorized");
+    }
 
-    const isAdmin = ["super_admin", "admin", "viewer"].includes(dbUser?.role ?? "")
-    const isSubscribed = isAdmin || !!dbUser?.isSubscribed
+    const userId = dbUser?.id ?? session.user.id;
+    await touchUserLastActive(userId, dbUser?.lastActiveAt);
+
+    const role = dbUser?.role || (session.user as any).role || "user";
+    const isStaff = isStaffRole(role);
+    const isSubscribed = isStaff || !!dbUser?.isSubscribed;
 
     return {
       ...session.user,
-      role: dbUser?.role || (session.user as any).role,
-      isLocked: !!dbUser?.isLocked,
+      id: userId,
+      role,
+      isLocked: false,
       isSubscribed,
       subscriptionPlan: isSubscribed ? (dbUser?.subscriptionPlan ?? "pro") : null,
       locale: dbUser?.locale || "ar",
     } as typeof session.user & { id: string, role: string, isLocked: boolean, isSubscribed: boolean, subscriptionPlan: string | null, locale: string };
   } catch (error) {
-    // DB timeout or connection error — fall back to JWT session data rather than
-    // bouncing the user back to the login page.
     console.error("[requireAuth] DB lookup failed, falling back to JWT session:", error);
 
+    if ((session.user as any).isLocked) {
+      redirect("/blocked");
+    }
+
     const role = (session.user as any).role ?? "user";
-    const isAdmin = ["super_admin", "admin", "viewer"].includes(role);
+    const isStaff = isStaffRole(role);
 
     return {
       ...session.user,
       role,
       isLocked: false,
-      isSubscribed: isAdmin,
-      subscriptionPlan: isAdmin ? "pro" : null,
+      isSubscribed: isStaff,
+      subscriptionPlan: isStaff ? "pro" : null,
       locale: "ar",
     } as typeof session.user & { id: string, role: string, isLocked: boolean, isSubscribed: boolean, subscriptionPlan: string | null, locale: string };
   }
-});
-
-/**
- * Ensures the user is authenticated AND has admin privileges.
- */
-export const requireAdmin = cache(async () => {
-  const user = await requireAuth();
-  if (!["admin", "super_admin"].includes(user.role)) {
-    throw new Error("Unauthorized: Admin access required.");
-  }
-  return user;
 });
 
 /**
@@ -102,7 +111,6 @@ export async function verifyOrganizationOwnership(orgId: string, userId: string)
 export async function verifyScenarioOwnership(scenarioId: string, userId: string) {
   const scenario = await scenariosService.getScenarioById(scenarioId);
   if (!scenario) throw new Error("Scenario not found");
-  // We reuse game ownership verification
   await verifyGameOwnership(scenario.gameId, userId);
   return scenario;
 }

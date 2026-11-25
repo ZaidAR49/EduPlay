@@ -6,11 +6,12 @@ import { useLocale } from "@/lib/i18n/LanguageContext"
 
 type AddUserModalProps = {
   isPending: boolean
+  canAssignPro: boolean
   onClose: () => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
 }
 
-export function AddUserModal({ isPending, onClose, onSubmit }: AddUserModalProps) {
+export function AddUserModal({ isPending, canAssignPro, onClose, onSubmit }: AddUserModalProps) {
   const { isRTL } = useLocale()
 
   return (
@@ -53,16 +54,20 @@ export function AddUserModal({ isPending, onClose, onSubmit }: AddUserModalProps
                 placeholder="user@example.com"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{isRTL ? "الباقة" : "Plan"}</label>
-              <select
-                name="plan"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-start"
-              >
-                <option value="free">{isRTL ? "مجاني" : "Free"}</option>
-                <option value="pro">{isRTL ? "برو (Pro)" : "Pro"}</option>
-              </select>
-            </div>
+            {canAssignPro ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{isRTL ? "الباقة" : "Plan"}</label>
+                <select
+                  name="plan"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-start"
+                >
+                  <option value="free">{isRTL ? "مجاني" : "Free"}</option>
+                  <option value="pro">{isRTL ? "برو (Pro)" : "Pro"}</option>
+                </select>
+              </div>
+            ) : (
+              <input type="hidden" name="plan" value="free" />
+            )}
           </div>
 
           <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">

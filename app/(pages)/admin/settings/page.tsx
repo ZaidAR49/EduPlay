@@ -1,10 +1,16 @@
-import { requireDashboardAccess } from "@/lib/auth/rbac"
+import { requirePermission } from "@/lib/auth/rbac"
 import { SettingsClient } from "@/components/admin/settings/SettingsClient"
 import { getAdminsAction } from "@/lib/actions/admin.actions"
 
 export default async function AdminSettingsPage() {
-  const user = await requireDashboardAccess()
+  const user = await requirePermission("staff:read")
   const initialAdmins = await getAdminsAction()
 
-  return <SettingsClient userRole={user.role as string} initialAdmins={initialAdmins as any[]} />
+  return (
+    <SettingsClient
+      userRole={user.role as string}
+      currentUserId={user.id}
+      initialAdmins={initialAdmins as any[]}
+    />
+  )
 }

@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { eq, desc, and, or, isNull, gt, lte, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { systemAnnouncements, userNotifications, users, systemAnnouncementReads } from "@/lib/db/schema";
-import { requireAuth, requireAdmin } from "./utils";
+import { requireAuth } from "./utils";
+import { requireActionPermission } from "@/lib/auth/rbac";
+import { logActivity } from "@/lib/services/activity.service";
 
 export async function getSystemAnnouncementsAction() {
-  await requireAdmin();
+  await requireActionPermission("notifications:read");
   const announcements = await db.select().from(systemAnnouncements).orderBy(desc(systemAnnouncements.createdAt));
   return announcements;
 }
@@ -20,9 +22,9 @@ export async function createSystemAnnouncementAction(data: {
   language?: string;
   endsAt: Date | null;
 }) {
-  const sessionUser = await requireAdmin();
+  const sessionUser = await requireActionPermission("notifications:write");
 
-  await db.insert(systemAnnouncements).values({
+  const [created] = await db.insert(systemAnnouncements).values({
     title: data.title,
     body: data.body,
     type: data.type,
@@ -30,6 +32,14 @@ export async function createSystemAnnouncementAction(data: {
     language: (data.language && ["all", "ar", "en"].includes(data.language)) ? data.language : "all",
     endsAt: data.endsAt,
     createdBy: sessionUser.id,
+  }).returning({ id: systemAnnouncements.id });
+
+  await logActivity({
+    actorId: sessionUser.id,
+    action: "admin_announcement_created",
+    entityType: "system_announcement",
+    entityId: created?.id ?? null,
+    metadata: { title: data.title, type: data.type, severity: data.severity },
   });
 
   revalidatePath("/admin/notifications");
@@ -37,22 +47,27 @@ export async function createSystemAnnouncementAction(data: {
 }
 
 export async function deleteSystemAnnouncementAction(id: string) {
-  await requireAdmin();
+  await requireActionPermission("notifications:write");
   await db.delete(systemAnnouncements).where(eq(systemAnnouncements.id, id));
   revalidatePath("/admin/notifications");
   revalidatePath("/dashboard");
 }
 
 export async function deleteAllSystemAnnouncementsAction() {
-  await requireAdmin();
+  const actor = await requireActionPermission("notifications:purge");
   await db.delete(systemAnnouncements);
+  await logActivity({
+    actorId: actor.id,
+    action: "admin_announcements_purged",
+    entityType: "system_announcement",
+  });
   revalidatePath("/admin/notifications");
   revalidatePath("/dashboard");
 }
 
 export async function getUserNotificationsAction() {
-  await requireAdmin();
-  
+  await requireActionPermission("notifications:read");
+
   // For the admin dashboard, we fetch all recent user notifications
   // joining with users to show who it was sent to, including their preferred language.
   const notifications = await db
@@ -68,7 +83,7 @@ export async function getUserNotificationsAction() {
     .leftJoin(users, eq(userNotifications.userId, users.id))
     .orderBy(desc(userNotifications.createdAt))
     .limit(50);
-    
+
   return notifications;
 }
 
@@ -78,7 +93,7 @@ export async function createUserNotificationAction(data: {
   body: string;
   type: string;
 }) {
-  await requireAdmin();
+  const actor = await requireActionPermission("notifications:write");
 
   // Validate that the user exists first
   const existingUser = await db.query.users.findFirst({
@@ -89,11 +104,20 @@ export async function createUserNotificationAction(data: {
     return { error: "المستخدم غير موجود. الرجاء التأكد من المعرف (User ID)." };
   }
 
-  await db.insert(userNotifications).values({
+  const [created] = await db.insert(userNotifications).values({
     userId: data.userId,
     title: data.title,
     body: data.body,
     type: data.type,
+  }).returning({ id: userNotifications.id });
+
+  await logActivity({
+    actorId: actor.id,
+    targetUserId: data.userId,
+    action: "admin_notification_sent",
+    entityType: "user_notification",
+    entityId: created?.id ?? null,
+    metadata: { title: data.title, type: data.type },
   });
 
   revalidatePath("/admin/notifications");
@@ -101,14 +125,19 @@ export async function createUserNotificationAction(data: {
 }
 
 export async function deleteUserNotificationAction(id: string) {
-  await requireAdmin();
+  await requireActionPermission("notifications:write");
   await db.delete(userNotifications).where(eq(userNotifications.id, id));
   revalidatePath("/admin/notifications");
 }
 
 export async function deleteAllUserNotificationsAction() {
-  await requireAdmin();
+  const actor = await requireActionPermission("notifications:purge");
   await db.delete(userNotifications);
+  await logActivity({
+    actorId: actor.id,
+    action: "admin_notifications_purged",
+    entityType: "user_notification",
+  });
   revalidatePath("/admin/notifications");
 }
 
@@ -118,14 +147,14 @@ export async function deleteAllUserNotificationsAction() {
 
 export async function getMyNotificationsAction() {
   const sessionUser = await requireAuth();
-  
+
   const notifications = await db
     .select()
     .from(userNotifications)
     .where(eq(userNotifications.userId, sessionUser.id))
     .orderBy(desc(userNotifications.createdAt))
     .limit(50);
-    
+
   return notifications;
 }
 
@@ -134,20 +163,20 @@ export async function getMySystemAnnouncementsAction(overrideLocale?: string) {
   const userLocale = (overrideLocale && ["ar", "en"].includes(overrideLocale))
     ? overrideLocale
     : (sessionUser.locale || "ar");
-  
+
   // Find IDs of announcements the user has already dismissed
   const dismissedReads = await db
     .select({ id: systemAnnouncementReads.announcementId })
     .from(systemAnnouncementReads)
     .where(eq(systemAnnouncementReads.userId, sessionUser.id));
-    
+
   const dismissedIds = dismissedReads.map((r) => r.id);
 
   // Build the query for active announcements
   // is_active = true AND startsAt <= now AND (endsAt IS NULL OR endsAt > now)
   // AND (language = 'all' OR language = userLocale)
   const now = new Date();
-  
+
   const conditions = [
     eq(systemAnnouncements.isActive, true),
     lte(systemAnnouncements.startsAt, now),
@@ -157,36 +186,36 @@ export async function getMySystemAnnouncementsAction(overrideLocale?: string) {
       eq(systemAnnouncements.language, userLocale)
     )
   ];
-  
+
   if (dismissedIds.length > 0) {
     conditions.push(notInArray(systemAnnouncements.id, dismissedIds));
   }
-  
+
   const announcements = await db
     .select()
     .from(systemAnnouncements)
     .where(and(...conditions))
     .orderBy(desc(systemAnnouncements.createdAt));
-    
+
   return announcements;
 }
 
 export async function deleteMyNotificationAction(id: string) {
   const sessionUser = await requireAuth();
-  
+
   await db
     .delete(userNotifications)
     .where(and(
       eq(userNotifications.id, id),
       eq(userNotifications.userId, sessionUser.id)
     ));
-    
+
   revalidatePath("/dashboard");
 }
 
 export async function markUserNotificationReadAction(id: string) {
   const sessionUser = await requireAuth();
-  
+
   await db
     .update(userNotifications)
     .set({ isRead: true })
@@ -194,13 +223,13 @@ export async function markUserNotificationReadAction(id: string) {
       eq(userNotifications.id, id),
       eq(userNotifications.userId, sessionUser.id)
     ));
-    
+
   revalidatePath("/dashboard");
 }
 
 export async function dismissSystemAnnouncementAction(announcementId: string) {
   const sessionUser = await requireAuth();
-  
+
   // Insert a record into systemAnnouncementReads so it won't show again
   try {
     await db.insert(systemAnnouncementReads).values({
@@ -213,13 +242,13 @@ export async function dismissSystemAnnouncementAction(announcementId: string) {
       throw error;
     }
   }
-  
+
   revalidatePath("/dashboard");
 }
 
 export async function markAllNotificationsReadAction() {
   const sessionUser = await requireAuth();
-  
+
   // 1. Mark all direct user notifications as read
   await db
     .update(userNotifications)
@@ -230,6 +259,6 @@ export async function markAllNotificationsReadAction() {
         eq(userNotifications.isRead, false)
       )
     );
-    
+
   revalidatePath("/dashboard");
 }

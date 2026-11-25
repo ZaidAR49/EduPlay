@@ -1,12 +1,12 @@
 "use server";
 
-import { requireDashboardAccess } from "@/lib/auth/rbac";
+import { requirePermission } from "@/lib/auth/rbac";
 import { runHogQL, ANALYTICS_DAYS, fillDailySeries } from "./core";
 
 /** PostHog traffic overview — unique visitors, pageviews, session duration, errors */
 export async function getTrafficOverviewAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const [visitors, pageviews, duration, errors] = await Promise.all([
     runHogQL(`
@@ -44,7 +44,7 @@ export async function getTrafficOverviewAction() {
 /** Unique visitors per day */
 export async function getUniqueVisitorsPerDayAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT toDate(timestamp) as day, count(DISTINCT person_id)
@@ -65,7 +65,7 @@ export async function getUniqueVisitorsPerDayAction() {
 /** Pageviews per day */
 export async function getVisitsPerDayAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT toDate(timestamp) as day, count()
@@ -86,7 +86,7 @@ export async function getVisitsPerDayAction() {
 /** Device type breakdown */
 export async function getDeviceTypeBreakdownAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT
@@ -114,7 +114,7 @@ export async function getDeviceTypeBreakdownAction() {
 /** Average session duration per day (seconds) */
 export async function getSessionDurationPerDayAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT toDate($start_timestamp) as day, avg($session_duration) as avg_duration
@@ -135,7 +135,7 @@ export async function getSessionDurationPerDayAction() {
 /** Errors per day */
 export async function getErrorsPerDayAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT toDate(timestamp) as day, count()
@@ -156,7 +156,7 @@ export async function getErrorsPerDayAction() {
 /** Top error messages */
 export async function getErrorBreakdownAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT
@@ -178,7 +178,7 @@ export async function getErrorBreakdownAction() {
 /** Geographic visits — top 10 countries */
 export async function getGeoVisitsAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT

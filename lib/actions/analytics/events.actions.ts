@@ -1,12 +1,12 @@
 "use server";
 
-import { requireDashboardAccess } from "@/lib/auth/rbac";
+import { requirePermission } from "@/lib/auth/rbac";
 import { runHogQL, CUSTOM_EVENTS, EVENT_LABELS, CustomEventName, ANALYTICS_DAYS, eventListSql, lastNDays } from "./core";
 
 /** Total counts for all custom PostHog events */
 export async function getAllEventsSummaryAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT event, count() as total
@@ -34,7 +34,7 @@ export async function getAllEventsSummaryAction() {
 /** Multi-event daily trend (pivoted for charts) */
 export async function getEventsTrendAction(events: CustomEventName[]) {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const invalidEvents = events.filter((e) => !CUSTOM_EVENTS.includes(e));
   if (invalidEvents.length > 0) {
@@ -70,7 +70,7 @@ export async function getEventsTrendAction(events: CustomEventName[]) {
 /** Teacher activity trend */
 export async function getTeacherActivityTrendAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
   return getEventsTrendAction([
     "game_created",
     "game_published",
@@ -84,7 +84,7 @@ export async function getTeacherActivityTrendAction() {
 /** Player journey trend */
 export async function getPlayerJourneyTrendAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
   return getEventsTrendAction([
     "game_joined",
     "game_started",
@@ -98,7 +98,7 @@ export async function getPlayerJourneyTrendAction() {
 /** Player funnel totals (joined → started → completed) */
 export async function getPlayerFunnelAction() {
   // Cached via Next.js
-  await requireDashboardAccess();
+  await requirePermission("analytics:read");
 
   const data = await runHogQL(`
     SELECT event, count() as total

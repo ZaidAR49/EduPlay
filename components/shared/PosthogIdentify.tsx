@@ -6,14 +6,16 @@ import posthog from "posthog-js"
 interface Props {
   userId: string
   name?: string | null
+  role?: string | null
 }
 
-export function PosthogIdentify({ userId, name }: Props) {
+export function PosthogIdentify({ userId, name, role }: Props) {
   useEffect(() => {
     posthog.identify(userId, {
       name: name ?? undefined,
+      role: role ?? undefined,
     })
-  }, [userId, name])
+  }, [userId, name, role])
 
   return null
 }

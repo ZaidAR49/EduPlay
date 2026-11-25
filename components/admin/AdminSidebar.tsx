@@ -10,12 +10,14 @@ import uiContent from "@/data/ui-content-general.json"
 import { signOut } from "next-auth/react"
 import { useLocale } from "@/lib/i18n/LanguageContext"
 import { LanguageDropdown } from "@/components/shared/LanguageDropdown"
+import { hasPermission } from "@/lib/auth/permissions"
 
 interface AdminSidebarProps {
   user?: { name: string; image: string | null }
+  userRole?: string
 }
 
-export function AdminSidebar({ user }: AdminSidebarProps) {
+export function AdminSidebar({ user, userRole }: AdminSidebarProps) {
   const pathname = usePathname()
   const { t, isRTL } = useLocale()
   const [isOpen, setIsOpen] = useState(false)
@@ -30,11 +32,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   }, [user?.image])
 
   const navItems = [
-    { name: t.adminNav.accounts, href: "/admin/accounts", icon: Users },
-    { name: t.adminNav.analytics, href: "/admin/analytics", icon: LayoutDashboard },
-    { name: t.adminNav.notifications, href: "/admin/notifications", icon: Bell },
-    { name: t.adminNav.settings, href: "/admin/settings", icon: Settings },
-  ]
+    { name: t.adminNav.accounts, href: "/admin/accounts", icon: Users, show: hasPermission(userRole, "users:read") },
+    { name: t.adminNav.analytics, href: "/admin/analytics", icon: LayoutDashboard, show: hasPermission(userRole, "analytics:read") },
+    { name: t.adminNav.notifications, href: "/admin/notifications", icon: Bell, show: hasPermission(userRole, "notifications:read") },
+    { name: t.adminNav.settings, href: "/admin/settings", icon: Settings, show: hasPermission(userRole, "staff:read") },
+  ].filter((item) => item.show)
 
   const initial = user?.name?.charAt(0).toUpperCase() ?? "A"
 

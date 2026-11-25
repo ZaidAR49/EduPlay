@@ -1,6 +1,6 @@
 # EduPlay 🎯
 
-**EduPlay** (also known as Decision Hero) is a premium, highly interactive, gamified learning platform built for teachers, schools, and educational organizations. It empowers educators to design engaging interactive quizzes with detailed pedagogical feedback, host live classroom gameplay sessions, and track student comprehension in real time.
+**EduPlay** is a premium, highly interactive, gamified learning platform built for teachers, schools, and educational organizations. It empowers educators to design engaging interactive quizzes with detailed pedagogical feedback, host live classroom gameplay sessions, and track student comprehension in real time.
 
 ---
 

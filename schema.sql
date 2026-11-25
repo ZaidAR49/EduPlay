@@ -30,7 +30,7 @@
 CREATE TYPE public.game_status AS ENUM ('draft', 'published', 'archived');
 CREATE TYPE public.play_status AS ENUM ('draft', 'live', 'closed');
 CREATE TYPE public.usage_activity AS ENUM ('ai_generation', 'game_play');
-CREATE TYPE public.user_role AS ENUM ('user', 'admin', 'viewer', 'super_admin');
+CREATE TYPE public.user_role AS ENUM ('user', 'viewer', 'editor', 'admin');
 
 
 -- =========================================================================
@@ -144,6 +144,7 @@ CREATE TABLE public.users (
   subscription_expires_at         timestamptz,
   locale                          text NOT NULL DEFAULT 'ar',
   last_login_at                   timestamptz,
+  last_active_at                  timestamptz,
   created_at                      timestamptz NOT NULL DEFAULT now(),
   updated_at                      timestamptz NOT NULL DEFAULT now(),
   deleted_at                      timestamptz,
@@ -397,7 +398,7 @@ CREATE TRIGGER trg_increment_user_usage_counters
 --   "users can insert their own usage events"  INSERT  WITH CHECK (user_id = auth.uid())
 --   "users can read their own usage events"    SELECT  USING (user_id = auth.uid())
 --   "staff can read all usage events"          SELECT  USING (users.role IN
---       ('admin','super_admin','viewer') for users.id = auth.uid())
+--       ('admin','editor','viewer') for users.id = auth.uid())
 --   NOTE: these rely on auth.uid(), which only resolves under a Supabase
 --   Auth JWT — confirm whether this path is actually used, or whether all
 --   access goes through the service role from your API layer.

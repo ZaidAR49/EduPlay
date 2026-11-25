@@ -1,11 +1,8 @@
-import { Navbar } from "@/components/shared/Navbar"
-import { PoliciesContent } from "./PoliciesContent"
+import { redirect } from "next/navigation"
 
+/**
+ * Legacy combined policy route redirected to the dedicated Privacy Policy page.
+ */
 export default function PoliciesPage() {
-  return (
-    <main className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <Navbar />
-      <PoliciesContent />
-    </main>
-  )
+  redirect("/privacy")
 }

@@ -14,7 +14,7 @@ import {
 import { relations } from "drizzle-orm";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "viewer", "super_admin"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "viewer", "editor", "admin"]);
 export const gameStatusEnum = pgEnum("game_status", ["draft", "published", "archived"]);
 export const playStatusEnum = pgEnum("play_status", ["draft", "live", "closed"]);
 export const usageActivityEnum = pgEnum("usage_activity", ["ai_generation", "game_play"]);
@@ -34,6 +34,7 @@ export const users = pgTable("users", {
   subscriptionExpiresAt: timestamp("subscription_expires_at", { mode: "date", withTimezone: true }),
   locale: text("locale").notNull().default("ar"),
   lastLoginAt: timestamp("last_login_at", { mode: "date", withTimezone: true }),
+  lastActiveAt: timestamp("last_active_at", { mode: "date", withTimezone: true }),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { mode: "date", withTimezone: true }),
@@ -395,3 +396,29 @@ export type NewSystemAnnouncement = typeof systemAnnouncements.$inferInsert;
 
 export type UserNotification = typeof userNotifications.$inferSelect;
 export type NewUserNotification = typeof userNotifications.$inferInsert;
+
+// activity_logs table (per-user actions & admin audit trail)
+export const activityLogs = pgTable("activity_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+  targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  entityType: text("entity_type"),
+  entityId: uuid("entity_id"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+});
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  actor: one(users, {
+    fields: [activityLogs.actorId],
+    references: [users.id],
+  }),
+  targetUser: one(users, {
+    fields: [activityLogs.targetUserId],
+    references: [users.id],
+  }),
+}));
+
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type NewActivityLog = typeof activityLogs.$inferInsert;

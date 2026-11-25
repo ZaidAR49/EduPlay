@@ -3,6 +3,7 @@
 import { revalidatePath, unstable_cache, updateTag } from "next/cache";
 import { getPostHogClient } from "@/lib/posthog-server";
 import * as gamesService from "@/lib/services/games.service";
+import { logActivity } from "@/lib/services/activity.service";
 import { NewGame } from "@/lib/db/schema";
 import { requireAuth, verifyGameOwnership } from "./utils";
 
@@ -27,7 +28,17 @@ export async function createGameAction(gameData: Omit<NewGame, "ownerId">) {
     event: "game_created",
     properties: { game_id: newGame?.id || 'unknown' },
   });
-  await posthog.shutdown();
+  await Promise.all([
+    posthog.shutdown(),
+    logActivity({
+      actorId: user.id,
+      targetUserId: user.id,
+      action: "game_created",
+      entityType: "game",
+      entityId: newGame?.id ?? null,
+      metadata: { title: gameData.title },
+    }),
+  ]);
 
   return newGame;
 }
@@ -68,7 +79,16 @@ export async function deleteGameAction(gameId: string) {
     event: "game_deleted",
     properties: { game_id: gameId },
   });
-  await posthog.shutdown();
+  await Promise.all([
+    posthog.shutdown(),
+    logActivity({
+      actorId: user.id,
+      targetUserId: user.id,
+      action: "game_deleted",
+      entityType: "game",
+      entityId: gameId,
+    }),
+  ]);
 }
 
 /**
@@ -80,7 +100,7 @@ export async function updateGameAction(gameId: string, gameData: Partial<NewGame
 
   const updatedGame = await gamesService.updateGame(gameId, gameData);
   revalidatePath("/dashboard/games");
-  revalidatePath(`/dashboard/games/${gameId}`); 
+  revalidatePath(`/dashboard/games/${gameId}`);
   updateTag(`games-${user.id}`);
   updateTag(`dashboard-${user.id}`);
   updateTag(`game-${gameId}`);
@@ -139,5 +159,14 @@ export async function toggleGamePublishStatusAction(gameId: string, publish: boo
     event: publish ? "game_published" : "game_session_closed",
     properties: { game_id: gameId },
   });
-  await posthog.shutdown();
+  await Promise.all([
+    posthog.shutdown(),
+    logActivity({
+      actorId: user.id,
+      targetUserId: user.id,
+      action: publish ? "game_published" : "game_session_closed",
+      entityType: "game",
+      entityId: gameId,
+    }),
+  ]);
 }

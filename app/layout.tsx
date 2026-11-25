@@ -4,7 +4,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { config } from "@/lib/config"
 import uiContent from "@/data/ui-content-general.json"
 import { Toaster } from "sonner"
-import { auth } from "@/auth"
+import { getCurrentUser } from "@/lib/auth/rbac"
 import { PosthogIdentify } from "@/components/shared/PosthogIdentify"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { cookies } from "next/headers"
@@ -71,7 +71,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const session = await auth()
+  const currentUser = await getCurrentUser()
   const cookieStore = await cookies()
   const cookieLocale = cookieStore.get(LOCALE_STORAGE_KEY)?.value as Locale | undefined
   const initialLocale: Locale = (cookieLocale === "en" || cookieLocale === "ar") ? cookieLocale : "ar"
@@ -83,8 +83,8 @@ export default async function RootLayout({
         <LanguageProvider initialLocale={initialLocale}>
           <HtmlDirSync />
           {children}
-          {session?.user?.id && (
-            <PosthogIdentify userId={session.user.id} name={session.user.name} />
+          {currentUser && !currentUser.isLocked && (
+            <PosthogIdentify userId={currentUser.id} name={currentUser.name} role={currentUser.role} />
           )}
           <Toaster position="top-center" richColors />
           {config.enableAnalytics && <Analytics />}

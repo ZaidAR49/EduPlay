@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 import { Suspense } from "react"
+import { requirePermission } from "@/lib/auth/rbac"
 import { AnalyticsHeader } from "@/components/admin/analytics/AnalyticsHeader"
 import {
   KpisSection,
@@ -20,7 +21,9 @@ import {
   ChartsGridSkeleton,
 } from "@/components/admin/analytics/Skeletons"
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  await requirePermission("analytics:read")
+
   return (
     <div className="space-y-10 pb-12">
       {/* Header */}

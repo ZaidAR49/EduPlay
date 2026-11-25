@@ -10,6 +10,7 @@ import { signOut } from "next-auth/react"
 import posthog from "posthog-js"
 import { useLocale } from "@/lib/i18n/LanguageContext"
 import { LOCALE_LABELS, type Locale } from "@/lib/i18n"
+import { isStaffRole } from "@/lib/auth/permissions"
 
 const LOCALES = Object.keys(LOCALE_LABELS) as Locale[]
 
@@ -60,7 +61,7 @@ export function NavbarClient({ session }: { session: any }) {
                     <LayoutDashboard className="w-4 h-4" />
                     {t.nav.dashboard}
                   </Link>
-                  {['admin', 'super_admin', 'viewer'].includes(session.user?.role) && (
+                  {isStaffRole(session.user?.role) && (
                     <Link href="/admin" className="text-purple-600 hover:text-purple-700 font-bold transition-colors flex items-center gap-1">
                       <Shield className="w-4 h-4" />
                       {t.nav.adminPanel}
@@ -188,7 +189,7 @@ export function NavbarClient({ session }: { session: any }) {
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-sm font-bold text-gray-900 truncate">{session.user?.name}</span>
                 <span className="text-xs text-gray-500 truncate">
-                  {['admin', 'super_admin'].includes(session.user?.role) ? t.nav.roleAdmin : t.nav.roleTeacher}
+                  {isStaffRole(session.user?.role) ? t.nav.roleAdmin : t.nav.roleTeacher}
                 </span>
               </div>
             </div>
@@ -230,7 +231,7 @@ export function NavbarClient({ session }: { session: any }) {
                 </div>
                 <span>{t.nav.dashboard}</span>
               </Link>
-              {['admin', 'super_admin', 'viewer'].includes(session.user?.role) && (
+              {isStaffRole(session.user?.role) && (
                 <Link href="/admin" className="px-4 py-3 flex items-center gap-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-purple-600 font-bold transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                   <div className="bg-purple-50 p-1.5 rounded-lg text-purple-600">
                     <Shield className="w-5 h-5" />

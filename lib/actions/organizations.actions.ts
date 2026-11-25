@@ -2,6 +2,7 @@
 
 import { revalidatePath, unstable_cache, updateTag } from "next/cache";
 import * as organizationsService from "@/lib/services/organizations.service";
+import { logActivity } from "@/lib/services/activity.service";
 import { NewOrganization } from "@/lib/db/schema";
 import { requireAuth, verifyOrganizationOwnership } from "./utils";
 import { deleteLogoFromS3 } from "./upload.actions";
@@ -20,6 +21,14 @@ export async function createOrganizationAction(orgData: Omit<NewOrganization, "o
   revalidatePath("/dashboard/settings");
   updateTag(`organizations-${user.id}`);
   updateTag(`dashboard-${user.id}`);
+  await logActivity({
+    actorId: user.id,
+    targetUserId: user.id,
+    action: "organization_created",
+    entityType: "organization",
+    entityId: newOrg.id,
+    metadata: { name: newOrg.name },
+  });
   return newOrg;
 }
 
@@ -87,4 +96,12 @@ export async function deleteOrganizationAction(orgId: string) {
   revalidatePath("/dashboard/organizations");
   updateTag(`organizations-${user.id}`);
   updateTag(`dashboard-${user.id}`);
+  await logActivity({
+    actorId: user.id,
+    targetUserId: user.id,
+    action: "organization_deleted",
+    entityType: "organization",
+    entityId: orgId,
+    metadata: { name: org?.name },
+  });
 }
