@@ -179,6 +179,53 @@ export async function createPublishedTestGame(params: {
   return { game, scenario, play };
 }
 
+export async function createClosedTestSession(params: {
+  ownerId: string;
+  organizationId?: string | null;
+  gameTitle?: string;
+  playerName?: string;
+}) {
+  const db = getTestDb();
+  const { game, play } = await createPublishedTestGame({
+    ownerId: params.ownerId,
+    organizationId: params.organizationId,
+    title: params.gameTitle ?? `E2E History Game ${crypto.randomBytes(3).toString("hex")}`,
+  });
+
+  // Insert player while play is still 'live' to satisfy enforce_play_live trigger
+  const [player] = await db
+    .insert(schema.players)
+    .values({
+      classroomPlayId: play.id,
+      name: params.playerName ?? `طالب سجل ${crypto.randomBytes(2).toString("hex")}`,
+      totalScore: 10,
+      totalCorrectAnswers: 1,
+      totalWrongAnswers: 0,
+      isFinished: true,
+      startedAt: new Date(Date.now() - 12_000),
+      completedAt: new Date(),
+    })
+    .returning();
+
+  // Close play and mark game draft so it appears cleanly in Sessions History
+  await db
+    .update(schema.classroomPlays)
+    .set({ status: "closed", endedAt: new Date() })
+    .where(eq(schema.classroomPlays.id, play.id));
+
+  await db
+    .update(schema.games)
+    .set({ status: "draft" })
+    .where(eq(schema.games.id, game.id));
+
+  return { game, play, player };
+}
+
+export async function deleteSystemAnnouncementsByTitle(title: string): Promise<void> {
+  const db = getTestDb();
+  await db.delete(schema.systemAnnouncements).where(eq(schema.systemAnnouncements.title, title));
+}
+
 export async function getOrganizationsByOwner(ownerId: string) {
   const db = getTestDb();
   return db

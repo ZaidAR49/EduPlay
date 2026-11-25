@@ -148,4 +148,69 @@ test.describe("Game Creation Wizard & AI Generator", () => {
 
     await context.close();
   });
+
+  test("BYO AI Wizard parses pasted JSON, saves draft, and deletes game from dashboard", async ({
+    browser,
+  }) => {
+    const context = await createAuthenticatedContext(browser, teacherUser, { locale: "ar" });
+    const page = await context.newPage();
+
+    const uniqueSuffix = Date.now().toString();
+    const byoTitle = `لعبة JSON E2E ${uniqueSuffix}`;
+    const pastedJson = JSON.stringify({
+      title: byoTitle,
+      description: "اختبار استيراد JSON",
+      slug: `byo-e2e-${uniqueSuffix}`,
+      icon: "🧩",
+      scenarios: [
+        {
+          title: "عاصمة الأردن",
+          description: "ما هي عاصمة المملكة الأردنية الهاشمية؟",
+          icon: "🏛️",
+          choices: [
+            {
+              text: "عمّان",
+              icon: "✅",
+              isCorrect: true,
+              points: 10,
+              feedback: { title: "صحيح", message: "عمّان هي العاصمة.", tip: "معلومة جغرافية" },
+            },
+            {
+              text: "إربد",
+              icon: "❌",
+              isCorrect: false,
+              points: 0,
+              feedback: { title: "خطأ", message: "إربد مدينة أخرى.", tip: "حاول مجدداً" },
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.goto("/dashboard/games/new");
+    await page.getByRole("button", { name: /استخدم البرومبت الخارجي|Use External Prompt/i }).click();
+
+    await page.locator('textarea[placeholder*="scenarios"]').fill(pastedJson);
+    await page.getByRole("button", { name: /تحليل وتحويل إلى لعبة|Parse & Convert/i }).click();
+
+    await expect(page.locator('input[name="title"]')).toHaveValue(byoTitle, { timeout: 10_000 });
+    await page.locator('select[name="organizationId"]').selectOption({ label: orgName });
+    await page.getByRole("button", { name: /التالي|Next/i }).click();
+    await page.getByRole("button", { name: /التالي|Next/i }).click();
+
+    // Save as draft -> redirects to /dashboard/games
+    await page.locator('input[name="status"][value="draft"]').locator("..").click();
+    await page.getByRole("button", { name: /حفظ اللعبة وإنهاء|Save Game & Finish/i }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/games$/, { timeout: 15_000 });
+    const gameCard = page.locator("div.rounded-2xl").filter({ hasText: byoTitle }).first();
+    await expect(gameCard).toBeVisible();
+
+    // Delete the draft game via dashboard ConfirmModal
+    await gameCard.getByRole("button", { name: /حذف|Delete/i }).click();
+    await page.getByRole("button", { name: /نعم، احذفها|Yes, delete it/i }).click();
+    await expect(page.getByText(byoTitle)).toHaveCount(0, { timeout: 10_000 });
+
+    await context.close();
+  });
 });

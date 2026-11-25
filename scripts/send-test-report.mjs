@@ -16,10 +16,36 @@ function escapeHtml(str) {
 }
 
 function formatDuration(ms) {
-  const totalSec = Math.round(ms / 1000);
-  const mins = Math.floor(totalSec / 60);
-  const secs = totalSec % 60;
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  if (!ms || ms < 1000) {
+    return `${Math.max(0, Math.round(ms || 0))}ms`;
+  }
+  const totalSec = (ms / 1000).toFixed(1);
+  if (ms < 60_000) {
+    return `${totalSec}s`;
+  }
+  const mins = Math.floor(ms / 60_000);
+  const secs = Math.round((ms % 60_000) / 1000);
+  return `${mins}m ${secs}s`;
+}
+
+function normalizeStatus(rawStatus) {
+  if (rawStatus === "expected" || rawStatus === "passed") return "PASSED";
+  if (rawStatus === "flaky") return "FLAKY";
+  if (rawStatus === "skipped") return "SKIPPED";
+  return "FAILED";
+}
+
+function getStatusBadgeStyle(statusLabel) {
+  if (statusLabel === "PASSED") {
+    return { bg: "#ecfdf5", text: "#047857", border: "#a7f3d0" };
+  }
+  if (statusLabel === "FLAKY") {
+    return { bg: "#fffbeb", text: "#b45309", border: "#fde68a" };
+  }
+  if (statusLabel === "SKIPPED") {
+    return { bg: "#f1f5f9", text: "#475569", border: "#cbd5e1" };
+  }
+  return { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" };
 }
 
 function collectTestResults(suites, parentTitles = [], out = []) {
@@ -27,11 +53,18 @@ function collectTestResults(suites, parentTitles = [], out = []) {
     const nextTitles = suite.title ? [...parentTitles, suite.title] : parentTitles;
 
     for (const spec of suite.specs || []) {
-      const fullTitle = [...nextTitles, spec.title].filter(Boolean).join(" › ");
+      const featureTitles = nextTitles.filter(
+        (t) => !t.endsWith(".spec.ts") && !t.endsWith(".ts") && t !== "chromium"
+      );
+      const suiteName =
+        featureTitles.join(" › ") || nextTitles[0] || spec.file || "General";
+      const fullTitle = [suiteName, spec.title].filter(Boolean).join(" › ");
+
       for (const test of spec.tests || []) {
         const results = test.results || [];
         const latest = results[results.length - 1] || {};
-        const status = test.status || latest.status || "unknown";
+        const rawStatus = test.status || latest.status || "unknown";
+        const statusLabel = normalizeStatus(rawStatus);
         const durationMs = results.reduce((sum, r) => sum + (r.duration || 0), 0);
         const errorMessage =
           latest.error?.message ||
@@ -39,12 +72,16 @@ function collectTestResults(suites, parentTitles = [], out = []) {
           "";
 
         out.push({
+          index: out.length + 1,
+          suiteName,
+          testName: spec.title || fullTitle,
           title: fullTitle,
           file: spec.file || suite.file || "",
           projectName: test.projectName || "chromium",
-          status,
+          status: rawStatus,
+          statusLabel,
           durationMs,
-          errorMessage: stripAnsi(errorMessage).slice(0, 600),
+          errorMessage: stripAnsi(errorMessage).slice(0, 800),
         });
       }
     }
@@ -81,12 +118,12 @@ function summarizeReport(reportPath) {
   const failures = [];
 
   for (const t of allTests) {
-    if (t.status === "expected" || t.status === "passed") {
+    if (t.statusLabel === "PASSED") {
       passed++;
-    } else if (t.status === "flaky") {
+    } else if (t.statusLabel === "FLAKY") {
       flaky++;
       passed++;
-    } else if (t.status === "skipped") {
+    } else if (t.statusLabel === "SKIPPED") {
       skipped++;
     } else {
       failed++;
@@ -111,8 +148,71 @@ function summarizeReport(reportPath) {
   };
 }
 
+function buildPlainTextReport(summary, meta) {
+  const lines = [
+    "================================================================================",
+    `EDUPLAY PRE-DEPLOYMENT REGRESSION TEST REPORT — ${meta.badgeText}`,
+    "================================================================================",
+    `Repository : ${meta.repo}`,
+    `Branch     : ${meta.branch}`,
+    `Commit     : ${meta.sha}`,
+    `Triggered  : ${meta.actor} via ${meta.eventName}`,
+    `Timestamp  : ${new Date().toISOString()}`,
+    `Summary    : Total=${summary.total} | Passed=${summary.passed} | Failed=${summary.failed} | Flaky=${summary.flaky} | Skipped=${summary.skipped} | Duration=${formatDuration(summary.durationMs)}`,
+    meta.runUrl ? `Run URL    : ${meta.runUrl}` : null,
+    "",
+    "--------------------------------------------------------------------------------",
+    "DATABASE ISOLATION & CLEANUP",
+    "--------------------------------------------------------------------------------",
+    "- Database Mode : Ephemeral isolated Supabase Docker containers (127.0.0.1)",
+    "- Production DB : UNTOUCHED (no production DB/S3 credentials are given to CI)",
+    "- Cleanup       : Test records deleted via afterAll() + containers destroyed on exit",
+    "",
+    "--------------------------------------------------------------------------------",
+    "TEST CASES BREAKDOWN",
+    "--------------------------------------------------------------------------------",
+  ].filter((line) => line !== null);
+
+  if (summary.missing) {
+    lines.push(
+      "Playwright JSON report was not generated (build or setup failed before tests ran)."
+    );
+  } else if (summary.allTests.length === 0) {
+    lines.push("No test cases found in Playwright JSON output.");
+  } else {
+    const colIdx = "#".padEnd(3);
+    const colStatus = "Result".padEnd(8);
+    const colDur = "Time".padEnd(8);
+    const colSuite = "Feature / Suite".padEnd(42);
+    lines.push(`${colIdx} | ${colStatus} | ${colDur} | ${colSuite} | Test Case`);
+    lines.push("-".repeat(120));
+
+    for (const t of summary.allTests) {
+      const idx = String(t.index).padEnd(3);
+      const status = t.statusLabel.padEnd(8);
+      const dur = formatDuration(t.durationMs).padEnd(8);
+      const suite = t.suiteName.slice(0, 42).padEnd(42);
+      lines.push(`${idx} | ${status} | ${dur} | ${suite} | ${t.testName}`);
+    }
+  }
+
+  if (summary.failures.length > 0) {
+    lines.push("");
+    lines.push("--------------------------------------------------------------------------------");
+    lines.push("FAILURE DETAILS");
+    lines.push("--------------------------------------------------------------------------------");
+    for (const f of summary.failures) {
+      lines.push(`[${f.index}] ${f.title} (${f.file})`);
+      lines.push(`    ${f.errorMessage || "No error message captured"}`);
+      lines.push("");
+    }
+  }
+
+  return lines.join("\n") + "\n";
+}
+
 function buildEmailContent(summary) {
-  const repo = process.env.GITHUB_REPOSITORY || "decision-hero-game";
+  const repo = process.env.GITHUB_REPOSITORY || "ZaidAR49/EduPlay";
   const runId = process.env.GITHUB_RUN_ID || "";
   const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
   const branch = process.env.GITHUB_REF_NAME || "local";
@@ -132,6 +232,33 @@ function buildEmailContent(summary) {
 
   const subject = `[${badgeText}] EduPlay Regression Tests (${summary.passed}/${summary.total}) — ${branch}@${sha}`;
 
+  const testCaseRows = summary.allTests
+    .map((t, i) => {
+      const pill = getStatusBadgeStyle(t.statusLabel);
+      const rowBg = i % 2 === 0 ? "#ffffff" : "#f8fafc";
+      return `
+      <tr style="background:${rowBg};">
+        <td style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;text-align:center;vertical-align:top;">
+          ${t.index}
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;font-weight:600;vertical-align:top;">
+          ${escapeHtml(t.suiteName)}
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;vertical-align:top;">
+          ${escapeHtml(t.testName)}
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #e2e8f0;text-align:center;vertical-align:top;white-space:nowrap;">
+          <span style="display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:${pill.bg};color:${pill.text};border:1px solid ${pill.border};">
+            ${t.statusLabel}
+          </span>
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b;text-align:right;vertical-align:top;white-space:nowrap;">
+          ${formatDuration(t.durationMs)}
+        </td>
+      </tr>`;
+    })
+    .join("");
+
   const failureRows = summary.failures
     .map(
       (f) => `
@@ -149,7 +276,7 @@ function buildEmailContent(summary) {
 
   const html = `
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;padding:24px;color:#111827;">
-    <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
+    <div style="max-width:820px;margin:0 auto;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
       <div style="padding:24px 28px;border-bottom:1px solid #e2e8f0;background:${badgeBg};">
         <span style="display:inline-block;background:${badgeColor};color:#ffffff;font-weight:700;font-size:12px;padding:4px 10px;border-radius:999px;letter-spacing:0.5px;">
           ${badgeText}
@@ -194,17 +321,37 @@ function buildEmailContent(summary) {
           Triggered by <strong>${escapeHtml(actor)}</strong> via <code>${escapeHtml(eventName)}</code>.
           ${summary.flaky > 0 ? `Flaky (passed on retry): <strong>${summary.flaky}</strong>.` : ""}
           ${summary.skipped > 0 ? `Skipped: <strong>${summary.skipped}</strong>.` : ""}
+          &nbsp;Full plain-text report is attached as <code>eduplay-regression-report.txt</code>.
         </p>
+
+        ${
+          summary.allTests.length > 0
+            ? `
+          <h2 style="font-size:15px;color:#0f172a;margin:18px 0 10px;">Test Case Results</h2>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+            <thead>
+              <tr style="background:#f1f5f9;text-align:left;">
+                <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;text-transform:uppercase;text-align:center;">#</th>
+                <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;text-transform:uppercase;">Feature / Suite</th>
+                <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;text-transform:uppercase;">Test Case</th>
+                <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;text-transform:uppercase;text-align:center;">Result</th>
+                <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;text-transform:uppercase;text-align:right;">Time</th>
+              </tr>
+            </thead>
+            <tbody>${testCaseRows}</tbody>
+          </table>`
+            : ""
+        }
 
         ${
           summary.failures.length > 0
             ? `
-          <h2 style="font-size:15px;color:#991b1b;margin:16px 0 8px;">Failed Tests</h2>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;">
+          <h2 style="font-size:15px;color:#991b1b;margin:22px 0 8px;">Failure Error Details</h2>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #fecaca;border-radius:8px;">
             <thead>
-              <tr style="background:#f9fafb;text-align:left;">
-                <th style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#4b5563;">Test</th>
-                <th style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#4b5563;">Error</th>
+              <tr style="background:#fef2f2;text-align:left;">
+                <th style="padding:8px 12px;border-bottom:1px solid #fecaca;font-size:12px;color:#991b1b;">Test</th>
+                <th style="padding:8px 12px;border-bottom:1px solid #fecaca;font-size:12px;color:#991b1b;">Error</th>
               </tr>
             </thead>
             <tbody>${failureRows}</tbody>
@@ -212,10 +359,14 @@ function buildEmailContent(summary) {
             : ""
         }
 
+        <div style="margin-top:20px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.5;">
+          <strong style="color:#0f172a;">Database Isolation &amp; Cleanup:</strong> Tests executed against an ephemeral local Supabase Docker stack (<code>127.0.0.1</code>) inside the CI runner. Production database and S3 storage were untouched, test records were cleaned up via <code>afterAll()</code>, and all containers are destroyed when the job exits.
+        </div>
+
         ${
           runUrl
             ? `
-          <div style="margin-top:24px;text-align:center;">
+          <div style="margin-top:22px;text-align:center;">
             <a href="${escapeHtml(runUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">
               Open Full Report &amp; Traces in GitHub Actions
             </a>
@@ -229,19 +380,15 @@ function buildEmailContent(summary) {
     </div>
   </div>`;
 
-  const text = [
-    `EduPlay Regression Report — ${badgeText}`,
-    `Repo: ${repo} | Branch: ${branch} | Commit: ${sha} | Trigger: ${eventName} (${actor})`,
-    `Total: ${summary.total} | Passed: ${summary.passed} | Failed: ${summary.failed} | Skipped: ${summary.skipped} | Duration: ${formatDuration(summary.durationMs)}`,
-    ...(summary.failures.length > 0
-      ? [
-          "",
-          "Failures:",
-          ...summary.failures.map((f) => `- ${f.title}: ${f.errorMessage}`),
-        ]
-      : []),
-    ...(runUrl ? ["", `GitHub Actions Run (HTML Report & Traces): ${runUrl}`] : []),
-  ].join("\n");
+  const text = buildPlainTextReport(summary, {
+    repo,
+    branch,
+    sha,
+    actor,
+    eventName,
+    runUrl,
+    badgeText,
+  });
 
   return { subject, html, text };
 }
@@ -252,6 +399,7 @@ async function sendEmail({ subject, html, text }) {
   const resendFromEmail = process.env.RESEND_FROM_EMAIL?.trim();
   const gmailUser = process.env.EMAIL?.trim();
   const gmailPassword = process.env.PASSWORD?.trim();
+  const attachmentFilename = "eduplay-regression-report.txt";
 
   if (!recipient) {
     console.log("[send-test-report] Skipping email: neither REPORT_EMAIL_TO nor EMAIL is set.");
@@ -272,13 +420,19 @@ async function sendEmail({ subject, html, text }) {
           subject,
           text,
           html,
+          attachments: [
+            {
+              filename: attachmentFilename,
+              content: Buffer.from(text, "utf8").toString("base64"),
+            },
+          ],
         }),
       });
       if (!response.ok) {
         const errBody = await response.text();
         throw new Error(`HTTP ${response.status}: ${errBody}`);
       }
-      console.log(`[send-test-report] Report emailed via Resend to ${recipient}.`);
+      console.log(`[send-test-report] Report emailed via Resend to ${recipient} (with ${attachmentFilename}).`);
       return;
     } catch (resendError) {
       console.error("[send-test-report] Resend failed, checking Gmail SMTP fallback:", resendError);
@@ -300,8 +454,15 @@ async function sendEmail({ subject, html, text }) {
       subject,
       text,
       html,
+      attachments: [
+        {
+          filename: attachmentFilename,
+          content: text,
+          contentType: "text/plain; charset=utf-8",
+        },
+      ],
     });
-    console.log(`[send-test-report] Report emailed via Gmail SMTP to ${recipient}.`);
+    console.log(`[send-test-report] Report emailed via Gmail SMTP to ${recipient} (with ${attachmentFilename}).`);
     return;
   }
 
@@ -317,6 +478,12 @@ async function main() {
   );
   const summary = summarizeReport(reportPath);
   const emailContent = buildEmailContent(summary);
+
+  const txtOutputPath = path.resolve(process.cwd(), "test-results/regression-report.txt");
+  fs.mkdirSync(path.dirname(txtOutputPath), { recursive: true });
+  fs.writeFileSync(txtOutputPath, emailContent.text, "utf8");
+  console.log(`[send-test-report] Wrote ${txtOutputPath}.`);
+
   console.log(`[send-test-report] Summary: ${emailContent.subject}`);
   await sendEmail(emailContent);
 }

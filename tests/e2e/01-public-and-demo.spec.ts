@@ -21,9 +21,12 @@ test.describe("Public Pages, Localization (RTL/LTR) & Demo Game", () => {
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   });
 
-  test("policies and contact pages load and contact submission succeeds", async ({ page }) => {
+  test("legal (/policies, /terms) and contact pages load and contact submission succeeds", async ({ page }) => {
     await page.goto("/policies");
     await expect(page.locator("main")).toContainText(/الخصوصية|Privacy|الشروط|Terms/i);
+
+    await page.goto("/terms");
+    await expect(page.locator("main")).toContainText(/شروط الخدمة|Terms of Service/i);
 
     // Mock /api/contact so CI tests don't send real SMTP/Resend emails
     await page.route("**/api/contact", async (route) => {
