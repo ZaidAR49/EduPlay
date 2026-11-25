@@ -61,7 +61,7 @@ export function useGameWizard({ gameId, initialGame, initialScenarios, defaultOr
   const addScenario = () => {
     const newId = Date.now().toString()
     const nextNum = scenarios.length + 1
-    const nextTitle = t.gameWizard?.questionNum 
+    const nextTitle = t.gameWizard?.questionNum
       ? t.gameWizard.questionNum.replace('{num}', String(nextNum))
       : (isRTL ? `السؤال ${nextNum}` : `Question ${nextNum}`)
 
@@ -110,7 +110,7 @@ export function useGameWizard({ gameId, initialGame, initialScenarios, defaultOr
         if (field === "isCorrect") {
           updatedChoices.forEach((c, idx) => {
             c.isCorrect = idx === choiceIndex
-            c.feedback.title = idx === choiceIndex 
+            c.feedback.title = idx === choiceIndex
               ? (isRTL ? "إجابة صحيحة! 🌟" : "Correct answer! 🌟")
               : (isRTL ? "إجابة غير صحيحة! 🤔" : "Incorrect answer! 🤔")
           })
