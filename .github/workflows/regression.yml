@@ -37,11 +37,11 @@ jobs:
         with:
           version: latest
 
-      - name: Start minimal local Supabase stack
-        run: supabase start --exclude studio,gotrue,imgproxy,edge-runtime,logflare,vector,postgres-meta,supavisor,inbucket
-
       - name: Install dependencies
         run: npm ci
+
+      - name: Start minimal local Supabase stack
+        run: supabase start --exclude studio,gotrue,imgproxy,edge-runtime,logflare,vector,postgres-meta,supavisor,mailpit
 
       - name: Bootstrap ephemeral schema, storage bucket, and test env
         run: node scripts/ci-bootstrap-supabase.mjs
