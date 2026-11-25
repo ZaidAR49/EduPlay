@@ -958,6 +958,7 @@
     "autoAiNoData": "No data received from generation engine.",
     "autoAiParseFailed": "Failed to parse game data from AI output.",
     "autoAiSuccess": "Game generated successfully! Review questions and explanations below and click save when done.",
+    "autoAiTokensUsed": "{count} tokens used",
     "autoAiBackToGenerator": "Back to Auto Generator",
     "autoAiWaitNotice": "Generation usually takes 5 to 15 seconds depending on question count."
   },

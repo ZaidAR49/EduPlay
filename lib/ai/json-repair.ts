@@ -1,6 +1,38 @@
+const AI_STREAM_META_REGEX = /\n<!--AI_META:(\{[\s\S]*?\})-->\s*$/;
+
+export function formatAiStreamMetadataTrailer(meta: { tokensUsed: number }): string {
+  return `\n<!--AI_META:${JSON.stringify(meta)}-->`;
+}
+
+export function extractAiStreamMetadata(rawStream: string): {
+  cleanOutput: string;
+  tokensUsed: number | null;
+} {
+  const match = rawStream.match(AI_STREAM_META_REGEX);
+  if (!match) {
+    return { cleanOutput: rawStream, tokensUsed: null };
+  }
+
+  let tokensUsed: number | null = null;
+  try {
+    const parsed = JSON.parse(match[1]) as { tokensUsed?: unknown };
+    if (typeof parsed.tokensUsed === "number" && Number.isFinite(parsed.tokensUsed)) {
+      tokensUsed = parsed.tokensUsed;
+    }
+  } catch {
+    tokensUsed = null;
+  }
+
+  return {
+    cleanOutput: rawStream.slice(0, match.index),
+    tokensUsed,
+  };
+}
+
 export function safeParseAiGameJson(streamedJson: string): any {
   // 1. First attempt: standard clean and parse
-  const trimmed = streamedJson.trim();
+  const { cleanOutput } = extractAiStreamMetadata(streamedJson);
+  const trimmed = cleanOutput.trim();
   const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
   const candidate = jsonMatch ? jsonMatch[0] : trimmed;
 

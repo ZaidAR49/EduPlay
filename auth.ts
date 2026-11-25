@@ -6,6 +6,7 @@ import { db } from "@/lib/db"
 import { users, accounts, sessions, verificationToken } from "@/lib/db/schema"
 
 const authResult = NextAuth({
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,

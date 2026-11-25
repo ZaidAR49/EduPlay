@@ -1,0 +1,28 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Run 4 times per day (every 6 hours) so Supabase receives steady daily DB activity
+    # without overloading the database. Note: GitHub disables scheduled workflows after
+    # 60 days without repo commits; pair with an external cron (e.g. cron-job.org) if idle.
+    - cron: "15 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping keep-alive endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL or CRON_SECRET secret is not set; skipping keep-alive ping."
+            exit 0
+          fi
+
+          BASE_URL="${APP_URL%/}"
+          curl -fsS --max-time 25 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/keep-alive"

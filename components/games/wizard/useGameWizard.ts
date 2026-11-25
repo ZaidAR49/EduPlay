@@ -10,9 +10,10 @@ type UseGameWizardProps = {
   gameId?: string
   initialGame?: Partial<GameFormData>
   initialScenarios?: Scenario[]
+  defaultOrganizationId?: string
 }
 
-export function useGameWizard({ gameId, initialGame, initialScenarios }: UseGameWizardProps) {
+export function useGameWizard({ gameId, initialGame, initialScenarios, defaultOrganizationId }: UseGameWizardProps) {
   const router = useRouter()
   const { t, isRTL } = useLocale()
   const [step, setStep] = useState(1)
@@ -29,7 +30,7 @@ export function useGameWizard({ gameId, initialGame, initialScenarios }: UseGame
     slug: initialGame?.slug || "",
     icon: initialGame?.icon || "🎮",
     status: initialGame?.status || "draft",
-    organizationId: initialGame?.organizationId || "",
+    organizationId: initialGame?.organizationId || defaultOrganizationId || "",
   })
 
   // Scenarios State

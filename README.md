@@ -60,7 +60,7 @@
 *   **Language & Runtime**: TypeScript 5.7 & Node.js
 *   **Database & ORM**: PostgreSQL (Supabase) + [Drizzle ORM](https://orm.drizzle.team/)
 *   **Internationalization (i18n)**: Custom zero-overhead static message catalogs (`messages/ar.json`, `messages/en.json`) with RTL/LTR directional synchronization
-*   **AI Engine**: Google GenAI SDK (`@google/genai`) with Vertex AI integration & JSON self-repair pipeline
+*   **AI Engine**: Centralized 3-tier AI gateway (`lib/services/ai.service.ts`) supporting Microsoft AI (Azure OpenAI / AI Foundry), Google AI Studio (`@google/genai`), and Google Vertex AI with automatic failover, quota enforcement, & JSON self-repair pipeline
 *   **Styling & UI**: Tailwind CSS v4, [Framer Motion](https://www.framer.com/motion/), Lucide React, Sonner (Toast notifications)
 *   **Authentication**: [Auth.js (NextAuth v5)](https://authjs.dev/) with RBAC
 *   **Telemetry & Analytics**: [PostHog](https://posthog.com/) (Client & Node SDKs) + Vercel Analytics & Speed Insights
@@ -138,15 +138,32 @@ AUTH_TRUST_HOST="true"
 AUTH_GOOGLE_ID="your-google-oauth-client-id"
 AUTH_GOOGLE_SECRET="your-google-oauth-client-secret"
 
-# Google Vertex AI & GenAI
+# AI Providers & 3-Tier Fallback Configuration
+# Supported providers: azure_openai | google_ai_studio | vertex_ai
+AI_PRIMARY_PROVIDER="azure_openai"
+AI_SECONDARY_PROVIDER="vertex_ai"
+AI_BACKUP_PROVIDER="google_ai_studio"
+
+# 1. Google AI Studio (Gemini Developer API - Free Tier / API Key)
+GOOGLE_AI_STUDIO_API_KEY="your-google-ai-studio-api-key"
+GOOGLE_AI_STUDIO_GAME_MODEL="gemini-3.6-flash"
+GOOGLE_AI_STUDIO_TEXT_MODEL="gemini-3.5-flash-lite"
+
+# 2. Microsoft AI Platform (Azure OpenAI / Azure AI Foundry)
+# Supports classic resource URL (https://your-resource.openai.azure.com) or Foundry v1/responses URL
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
+AZURE_OPENAI_API_KEY="your-azure-openai-api-key"
+AZURE_OPENAI_API_VERSION="2024-10-21"
+AZURE_OPENAI_GAME_DEPLOYMENT="gpt-4o-mini"
+AZURE_OPENAI_TEXT_DEPLOYMENT="gpt-4o-mini"
+
+# 3. Google Vertex AI (Optional / Legacy GCP)
 VERTEX_AI_PROJECT_ID="your-gcp-project-id"
 VERTEX_AI_LOCATION="global"
 VERTEX_AI_CLIENT_EMAIL="service-account@project.iam.gserviceaccount.com"
 VERTEX_AI_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
-
-# Configurable Gemini Models (Optional - defaults to gemini-2.5-flash)
 GEMINI_GAME_MODEL="gemini-2.5-flash"
-GEMINI_TEXT_MODEL="gemini-2.5-flash"
+GEMINI_TEXT_MODEL="gemini-2.0-flash-lite"
 
 # Telemetry & Monitoring (PostHog & Vercel)
 NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN="phc_..."
@@ -158,9 +175,11 @@ POSTHOG_PERSONAL_API_KEY="phx_..."
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 CRON_SECRET="your-secure-cron-secret-token"
 
-# Contact & Email (Optional - Nodemailer)
+# Contact & Email (Primary: Resend, Fallback: Nodemailer Gmail SMTP)
 EMAIL="notifications@yourdomain.com"
 PASSWORD="smtp-application-password"
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="EduPlay <support@yourdomain.com>"
 ```
 
 ### 3. Run Development Server

@@ -1,9 +1,11 @@
-import { getGenAIClient } from "@/lib/ai/genai-client";
-import { gameGeneratorConfig } from "@/lib/ai/game-generator.config";
 import { auth } from "@/auth";
-import { getAiUsageAndLimit, recordAiUsage, checkAndResetAiUsage } from "@/lib/services/usage.service";
+import {
+  AiConfigurationError,
+  AiQuotaExceededError,
+  executeAiGameStream,
+} from "@/lib/services/ai.service";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
@@ -14,74 +16,60 @@ export async function POST(req: Request) {
     }
 
     const { idea, questionCount, locale } = await req.json();
-    const resolvedLocale = typeof locale === "string" && locale.toLowerCase() === "en" ? "en" : "ar";
+    const resolvedLocale =
+      typeof locale === "string" && locale.toLowerCase() === "en" ? "en" : "ar";
 
     // SECURITY: Prevent Denial of Wallet / AI Abuse
     const maxQuestions = 20;
     const maxIdeaLength = 1000;
-    
-    if (typeof questionCount !== 'number' || questionCount < 1 || questionCount > maxQuestions) {
-      return new Response(`Error: questionCount must be between 1 and ${maxQuestions}`, { status: 400 });
-    }
-    
-    if (typeof idea !== 'string' || idea.trim().length === 0 || idea.length > maxIdeaLength) {
-      return new Response(`Error: idea must be between 1 and ${maxIdeaLength} characters`, { status: 400 });
-    }
 
-    // Bug #3 Fix: Enforce AI token limit BEFORE calling the AI
-    await checkAndResetAiUsage(session.user.id);
-    const aiUsage = await getAiUsageAndLimit(session.user.id);
-    if (aiUsage.isOverLimit) {
+    if (typeof questionCount !== "number" || questionCount < 1 || questionCount > maxQuestions) {
       return new Response(
-        JSON.stringify({ error: "AI usage limit reached for this period.", used: aiUsage.used, limit: aiUsage.limit }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } }
+        `Error: questionCount must be between 1 and ${maxQuestions}`,
+        { status: 400 }
       );
     }
 
-    const ai = getGenAIClient();
-    const responseStream = await ai.models.generateContentStream({
-      model: gameGeneratorConfig.model,
-      contents: "Please generate the quiz game now according to the system instructions.",
-      config: {
-        ...gameGeneratorConfig.config,
-        systemInstruction: gameGeneratorConfig.getSystemPrompt(idea, questionCount, resolvedLocale),
-      },
-    });
+    if (typeof idea !== "string" || idea.trim().length === 0 || idea.length > maxIdeaLength) {
+      return new Response(
+        `Error: idea must be between 1 and ${maxIdeaLength} characters`,
+        { status: 400 }
+      );
+    }
 
-    let totalChars = 0;
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of responseStream) {
-            if (chunk.text) {
-              totalChars += chunk.text.length;
-              controller.enqueue(new TextEncoder().encode(chunk.text));
-            }
-          }
-          controller.close();
-
-          // Record approximate token usage after stream ends (1 token ≈ 4 chars)
-          const estimatedTokens = Math.ceil(totalChars / 4);
-          await recordAiUsage(session.user.id, estimatedTokens, {
-            questionCount,
-            ideaLength: idea.length,
-          }).catch((err) => console.error("Failed to record AI usage:", err));
-        } catch (err) {
-          controller.error(err);
-        }
-      }
+    const { stream } = await executeAiGameStream({
+      userId: session.user.id,
+      idea,
+      questionCount,
+      locale: resolvedLocale,
     });
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof AiQuotaExceededError) {
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+          used: error.used,
+          limit: error.limit,
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (error instanceof AiConfigurationError) {
+      console.error("AI Configuration Error:", error);
+      return new Response(error.message, { status: 503 });
+    }
+
     console.error("AI Streaming Error:", error);
-    return new Response(error.message || "Failed to generate game", { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to generate game";
+    return new Response(message, { status: 500 });
   }
 }

@@ -51,7 +51,12 @@ export function GameWizard({
     updateChoice,
     handleNextStep,
     handleSave,
-  } = useGameWizard({ gameId, initialGame, initialScenarios })
+  } = useGameWizard({
+    gameId,
+    initialGame,
+    initialScenarios,
+    defaultOrganizationId: organizations[0]?.id,
+  })
 
   const finalGameId = createdGameId || gameId;
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

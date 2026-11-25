@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Sparkles, ArrowRight, ArrowLeft, Wand2, AlertCircle, Globe, ChevronDown } from "lucide-react"
+import { Sparkles, ArrowRight, ArrowLeft, Wand2, AlertCircle, Globe, ChevronDown, Zap } from "lucide-react"
 import { useLocale } from "@/lib/i18n/LanguageContext"
 import { GameWizard } from "./GameWizard"
 import { OrganizationOption } from "./wizard/BasicInfoStep"
 import { GameFormData, Scenario } from "./wizard/types"
-import { safeParseAiGameJson } from "@/lib/ai/json-repair"
+import { extractAiStreamMetadata, safeParseAiGameJson } from "@/lib/ai/json-repair"
 
 interface AutoAiWizardProps {
   organizations: OrganizationOption[];
@@ -26,10 +26,12 @@ export function AutoAiWizard({ organizations, onBack }: AutoAiWizardProps) {
   // State for parsed game data
   const [parsedGame, setParsedGame] = useState<Partial<GameFormData> | null>(null)
   const [parsedScenarios, setParsedScenarios] = useState<Scenario[] | null>(null)
+  const [tokensUsed, setTokensUsed] = useState<number | null>(null)
 
   const handleGenerate = async () => {
     setIsGenerating(true)
     setErrorMsg(null)
+    setTokensUsed(null)
     setLoadingText(t.gameCreation.autoAiLoadingAnalyzing)
     
     // Simple mock text progression for UX
@@ -68,12 +70,15 @@ export function AutoAiWizard({ organizations, onBack }: AutoAiWizardProps) {
         // Update loading text to show progress
         setLoadingText(t.gameCreation.autoAiLoadingChars.replace('{count}', String(streamedJson.length)));
       }
+      streamedJson += decoder.decode();
+
+      const { cleanOutput, tokensUsed: consumedTokens } = extractAiStreamMetadata(streamedJson);
 
       let parsed;
       try {
-        parsed = safeParseAiGameJson(streamedJson);
+        parsed = safeParseAiGameJson(cleanOutput);
       } catch (parseError) {
-        console.error("Failed to parse JSON:", streamedJson);
+        console.error("Failed to parse JSON:", cleanOutput);
         throw new Error(t.gameCreation.autoAiParseFailed);
       }
 
@@ -105,6 +110,7 @@ export function AutoAiWizard({ organizations, onBack }: AutoAiWizardProps) {
         }))
       }))
 
+      setTokensUsed(consumedTokens)
       setParsedGame(newGameData)
       setParsedScenarios(newScenarios)
 
@@ -121,9 +127,19 @@ export function AutoAiWizard({ organizations, onBack }: AutoAiWizardProps) {
   if (parsedGame && parsedScenarios) {
     return (
       <div className="space-y-4">
-        <div className="bg-emerald-50 text-emerald-700 px-6 py-4 rounded-2xl mb-8 flex items-center gap-3 font-bold border border-emerald-100">
-          <Wand2 className="w-6 h-6 shrink-0" />
-          <span>{t.gameCreation.autoAiSuccess}</span>
+        <div className="bg-emerald-50 text-emerald-700 px-5 sm:px-6 py-4 rounded-2xl mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-bold border border-emerald-100">
+          <div className="flex items-center gap-3">
+            <Wand2 className="w-6 h-6 shrink-0" />
+            <span>{t.gameCreation.autoAiSuccess}</span>
+          </div>
+          {tokensUsed !== null && (
+            <div className="inline-flex items-center gap-1.5 self-start sm:self-auto bg-white/90 text-emerald-700 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs shrink-0 whitespace-nowrap">
+              <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                {t.gameCreation.autoAiTokensUsed.replace("{count}", tokensUsed.toLocaleString())}
+              </span>
+            </div>
+          )}
         </div>
         <GameWizard 
           isEdit={false} 
@@ -135,6 +151,7 @@ export function AutoAiWizard({ organizations, onBack }: AutoAiWizardProps) {
               onClick={() => {
                 setParsedGame(null)
                 setParsedScenarios(null)
+                setTokensUsed(null)
                 setIdea("")
               }}
               className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 transition-colors font-bold text-sm bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-xl border border-emerald-100"

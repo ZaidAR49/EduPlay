@@ -4,7 +4,7 @@
   },
   "crons": [
     {
-      "path": "/api/keep-alive",
+      "path": "/api/keep-alive?cleanup=true",
       "schedule": "0 3 * * *"
     }
   ]

@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { useLocale } from "@/lib/i18n/LanguageContext"
 
-export function ContactClient() {
+export function ContactClient({ contactEmail }: { contactEmail: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState("")
@@ -25,9 +25,9 @@ export function ContactClient() {
   const { messages: t, locale } = useLocale()
 
   const c = t.contactPage
-  const contactEmail = "zaidradaideh.dev@gmail.com"
 
   const handleCopyEmail = async () => {
+    if (!contactEmail) return
     try {
       await navigator.clipboard.writeText(contactEmail)
       setCopied(true)
@@ -152,59 +152,61 @@ export function ContactClient() {
             </div>
 
             {/* Bottom Email Component: Clean, integrated, discreet email section */}
-            <div className="bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white rounded-3xl p-6 border border-emerald-100/80 shadow-sm space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
-                  <Mail className="w-5 h-5" />
+            {contactEmail && (
+              <div className="bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white rounded-3xl p-6 border border-emerald-100/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-gray-900 leading-snug">
+                      {c.directEmailHint}
+                    </h3>
+                    <p className="text-xs text-gray-500 truncate">
+                      {c.directEmailDesc}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-gray-900 leading-snug">
-                    {c.directEmailHint}
-                  </h3>
-                  <p className="text-xs text-gray-500 truncate">
-                    {c.directEmailDesc}
-                  </p>
+
+                {/* Action items: Direct Email Button & Discreet copy bar */}
+                <div className="flex flex-col gap-2.5 pt-1">
+                  {/* Send Direct Email Button */}
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-semibold text-sm transition-all shadow-sm group"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>{c.emailDirectBtn}</span>
+                    <ExternalLink className="w-3.5 h-3.5 rtl:rotate-180 opacity-80 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 rtl:group-hover:-translate-x-0.5" />
+                  </a>
+
+                  {/* Subtle Copy Email Pill with Smaller Font */}
+                  <button
+                    type="button"
+                    onClick={handleCopyEmail}
+                    className="w-full flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-white/95 hover:bg-white border border-emerald-200/80 hover:border-emerald-400 text-gray-700 text-xs transition-all shadow-2xs group"
+                    title={c.copyEmail}
+                  >
+                    <span className="font-mono text-xs text-gray-600 tracking-tight" dir="ltr">
+                      {contactEmail}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 group-hover:text-emerald-700 shrink-0">
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{c.emailCopied}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
+                          <span>{c.copyEmail}</span>
+                        </>
+                      )}
+                    </span>
+                  </button>
                 </div>
               </div>
-
-              {/* Action items: Direct Email Button & Discreet copy bar */}
-              <div className="flex flex-col gap-2.5 pt-1">
-                {/* Send Direct Email Button */}
-                <a
-                  href={`mailto:${contactEmail}`}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-semibold text-sm transition-all shadow-sm group"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>{c.emailDirectBtn}</span>
-                  <ExternalLink className="w-3.5 h-3.5 rtl:rotate-180 opacity-80 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 rtl:group-hover:-translate-x-0.5" />
-                </a>
-
-                {/* Subtle Copy Email Pill with Smaller Font */}
-                <button
-                  type="button"
-                  onClick={handleCopyEmail}
-                  className="w-full flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-white/95 hover:bg-white border border-emerald-200/80 hover:border-emerald-400 text-gray-700 text-xs transition-all shadow-2xs group"
-                  title={c.copyEmail}
-                >
-                  <span className="font-mono text-xs text-gray-600 tracking-tight" dir="ltr">
-                    {contactEmail}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 group-hover:text-emerald-700 shrink-0">
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{c.emailCopied}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
-                        <span>{c.copyEmail}</span>
-                      </>
-                    )}
-                  </span>
-                </button>
-              </div>
-            </div>
+            )}
 
           </div>
 
