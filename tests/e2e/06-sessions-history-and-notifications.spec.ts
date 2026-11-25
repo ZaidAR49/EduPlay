@@ -49,7 +49,9 @@ test.describe("Sessions History & Admin System Notifications", () => {
     const page = await context.newPage();
 
     await page.goto("/dashboard/sessions");
-    await expect(page.getByText(seededGameTitle)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: seededGameTitle })).toBeVisible({
+      timeout: 10_000,
+    });
 
     const card = page.locator("div.rounded-2xl").filter({ hasText: seededGameTitle }).first();
     await card.getByRole("link", { name: /عرض التفاصيل|View Details/i }).click();
@@ -104,7 +106,10 @@ test.describe("Sessions History & Admin System Notifications", () => {
       .filter({ hasText: announcementTitle })
       .first();
     await item.locator('button[title="حذف"], button[title="Delete"]').click();
-    await adminPage.getByRole("button", { name: /^حذف$|^Delete$/i }).click();
+    await adminPage
+      .locator("div.fixed.inset-0")
+      .getByRole("button", { name: /^حذف$|^Delete$/i })
+      .click();
     await expect(adminPage.getByText(announcementTitle)).toHaveCount(0, { timeout: 10_000 });
 
     await adminContext.close();
