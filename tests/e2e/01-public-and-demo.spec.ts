@@ -23,7 +23,7 @@ test.describe("Public Pages, Localization (RTL/LTR) & Demo Game", () => {
 
   test("policies and contact pages load and contact submission succeeds", async ({ page }) => {
     await page.goto("/policies");
-    await expect(page.locator("main, body")).toContainText(/الخصوصية|Privacy|الشروط|Terms/i);
+    await expect(page.locator("main")).toContainText(/الخصوصية|Privacy|الشروط|Terms/i);
 
     // Mock /api/contact so CI tests don't send real SMTP/Resend emails
     await page.route("**/api/contact", async (route) => {

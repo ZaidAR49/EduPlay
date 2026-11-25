@@ -37,9 +37,24 @@ test.describe("Live Classroom Session & Real-time Student Gameplay", () => {
     const teacherContext = await createAuthenticatedContext(browser, teacherUser, { locale: "ar" });
     const teacherPage = await teacherContext.newPage();
 
+    // Wait until Supabase Realtime WebSocket finishes subscribing before the student joins
+    let resolveSubscribed: (() => void) | null = null;
+    const realtimeReady = new Promise<void>((resolve) => {
+      resolveSubscribed = resolve;
+    });
+    teacherPage.on("websocket", (ws) => {
+      ws.on("framereceived", (frame) => {
+        const text = typeof frame.payload === "string" ? frame.payload : "";
+        if (text.includes("phx_reply") && text.includes("ok")) {
+          resolveSubscribed?.();
+        }
+      });
+    });
+
     await teacherPage.goto(`/dashboard/games/${gameId}/live`);
     await expect(teacherPage.getByText(/مباشر الآن|Live Now/i)).toBeVisible({ timeout: 15_000 });
     await expect(teacherPage.getByText(/لا يوجد طلاب متصلين|No students connected/i)).toBeVisible();
+    await Promise.race([realtimeReady, teacherPage.waitForTimeout(5_000)]);
 
     // 2. Unauthenticated Student joins in a completely separate BrowserContext
     const studentContext = await browser.newContext({ baseURL: "http://localhost:3000" });
@@ -66,7 +81,9 @@ test.describe("Live Classroom Session & Real-time Student Gameplay", () => {
     await expect(studentPage.getByText("10", { exact: true })).toBeVisible();
 
     // 3. Verify Teacher's Live Leaderboard updates via Supabase Realtime (without manual refresh)
-    await expect(teacherPage.getByText(studentName)).toBeVisible({ timeout: 15_000 });
+    await expect(teacherPage.getByRole("heading", { name: studentName })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(teacherPage.getByText(/أكمل الاختبار|Completed/i)).toBeVisible({ timeout: 15_000 });
 
     // 4. Teacher ends session -> navigates to Podium displaying the student
@@ -74,7 +91,7 @@ test.describe("Live Classroom Session & Real-time Student Gameplay", () => {
     await expect(teacherPage).toHaveURL(new RegExp(`/dashboard/sessions/${playId}/podium`), {
       timeout: 15_000,
     });
-    await expect(teacherPage.getByText(studentName)).toBeVisible({ timeout: 10_000 });
+    await expect(teacherPage.getByText(studentName).first()).toBeVisible({ timeout: 10_000 });
 
     await studentContext.close();
     await teacherContext.close();
