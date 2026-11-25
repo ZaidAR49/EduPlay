@@ -134,6 +134,7 @@
     "legalTitle": "Legal & Support",
     "features": "Features",
     "howItWorks": "How it Works",
+    "faq": "FAQ",
     "tryDemo": "Try Demo Game",
     "teacherLogin": "Teacher Login",
     "contactUs": "Contact Us",
@@ -1172,5 +1173,37 @@
       "game_result_shared": "Share Result",
       "ai_organization_improved": "AI Org Improvement"
     }
+  },
+  "faq": {
+    "sectionBadge": "Frequently Asked Questions",
+    "sectionHeading1": "Clear answers for",
+    "sectionHeading2": "educators and schools",
+    "sectionDescription": "Everything teachers, schools, and AI assistants need to know about how EduPlay works.",
+    "items": [
+      {
+        "question": "What is EduPlay and who is it built for?",
+        "answer": "EduPlay is an interactive, AI-powered educational quiz and scenario game platform designed for teachers, schools, academies, and training centers. It lets educators turn any lesson topic into an engaging classroom game with real-time comprehension analytics."
+      },
+      {
+        "question": "Do students need accounts or passwords to join a game?",
+        "answer": "No. Students join live classroom sessions in seconds by scanning a QR code or opening the session link and entering a nickname. No email addresses, passwords, or student registrations are required."
+      },
+      {
+        "question": "How does AI game creation work in EduPlay?",
+        "answer": "Educators can generate full multi-question games automatically using built-in Auto AI (Google Gemini and Azure OpenAI) from a single lesson topic, copy an engineered BYO Prompt blueprint for ChatGPT or Claude and paste the JSON, or build manually step by step."
+      },
+      {
+        "question": "Does EduPlay support both Arabic and English?",
+        "answer": "Yes. EduPlay provides 100% bilingual parity in Arabic (with automatic right-to-left RTL layout) and English (left-to-right LTR), including localized demos, instant language switching, and AI quiz generation in either language."
+      },
+      {
+        "question": "What makes EduPlay different from standard quiz tools?",
+        "answer": "Every answer choice includes immediate explanatory feedback explaining why it is right or wrong plus an enrichment tip, turning each question into active learning. Teachers also get live accuracy charts, an animated celebratory podium, and custom school branding."
+      },
+      {
+        "question": "How does EduPlay protect student privacy and manage session data?",
+        "answer": "EduPlay collects no student emails or personal profiles. Live classroom sessions automatically close after 2 hours, and detailed student session responses are permanently purged from servers after 30 days."
+      }
+    ]
   }
 }

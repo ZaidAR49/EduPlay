@@ -56,6 +56,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/#faq" className="hover:text-white transition-colors">
+                  {f.faq}
+                </Link>
+              </li>
+              <li>
                 <Link href="/game/demo" className="hover:text-white transition-colors">
                   {f.tryDemo}
                 </Link>

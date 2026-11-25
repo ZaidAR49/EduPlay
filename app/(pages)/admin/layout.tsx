@@ -1,6 +1,13 @@
+import type { Metadata } from "next"
 import { AdminSidebar } from "@/components/admin/AdminSidebar"
 import { AdminHeaderClient } from "@/components/admin/AdminHeaderClient"
 import { requireDashboardAccess } from "@/lib/auth/rbac"
+import { NOINDEX_ROBOTS } from "@/lib/seo"
+
+export const metadata: Metadata = {
+  title: "Admin Panel",
+  robots: NOINDEX_ROBOTS,
+}
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const dbUser = await requireDashboardAccess()

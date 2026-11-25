@@ -57,14 +57,23 @@ function detectBrowserLocale(): Locale {
 export function LanguageProvider({
   children,
   initialLocale,
+  forceInitialLocale = false,
 }: {
   children: ReactNode
   initialLocale?: Locale
+  forceInitialLocale?: boolean
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale || DEFAULT_LOCALE)
 
   useEffect(() => {
     try {
+      if (forceInitialLocale && initialLocale && SUPPORTED_LOCALES.includes(initialLocale)) {
+        setLocaleState(initialLocale)
+        localStorage.setItem(LOCALE_STORAGE_KEY, initialLocale)
+        document.cookie = `${LOCALE_STORAGE_KEY}=${initialLocale}; path=/; max-age=31536000; SameSite=Lax`
+        return
+      }
+
       const stored = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null
       if (stored && SUPPORTED_LOCALES.includes(stored)) {
         if (stored !== locale) {
@@ -83,7 +92,7 @@ export function LanguageProvider({
     } catch {
       // ignore
     }
-  }, [initialLocale])
+  }, [initialLocale, forceInitialLocale])
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -100,6 +109,11 @@ export function LanguageProvider({
       try {
         localStorage.setItem(LOCALE_STORAGE_KEY, newLocale)
         document.cookie = `${LOCALE_STORAGE_KEY}=${newLocale}; path=/; max-age=31536000; SameSite=Lax`
+        const url = new URL(window.location.href)
+        if (url.searchParams.has("lang")) {
+          url.searchParams.set("lang", newLocale)
+          window.history.replaceState(null, "", url.pathname + url.search + url.hash)
+        }
       } catch {
         // ignore
       }

@@ -37,7 +37,7 @@ export function NavbarClient({ session }: { session: any }) {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-xl">
-                <Image src={AppLogo} alt="Logo" width={40} height={40} className="object-contain" priority />
+                <Image src={AppLogo} alt={`${uiContent.app.name} logo`} width={40} height={40} className="object-contain" priority />
               </div>
               <span className="text-xl font-black text-gray-900 tracking-tight">
                 {uiContent.app.name}
@@ -128,6 +128,8 @@ export function NavbarClient({ session }: { session: any }) {
 
             {/* Mobile Menu Button */}
             <button
+              type="button"
+              aria-label="Open navigation menu"
               className="md:hidden p-2 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -155,11 +157,13 @@ export function NavbarClient({ session }: { session: any }) {
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-lg">
-              <Image src={AppLogo} alt="Logo" width={40} height={40} className="object-contain" priority />
+              <Image src={AppLogo} alt={`${uiContent.app.name} logo`} width={40} height={40} className="object-contain" priority />
             </div>
             <span className="text-xl font-black text-gray-900 tracking-tight">{uiContent.app.name}</span>
           </div>
           <button
+            type="button"
+            aria-label="Close navigation menu"
             onClick={() => setIsMobileMenuOpen(false)}
             className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
           >

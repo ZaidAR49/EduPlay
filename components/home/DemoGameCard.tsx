@@ -84,7 +84,7 @@ export function DemoGameCard() {
 
         {/* Question — text-start: right in RTL, left in LTR */}
         <div className="mb-6 text-start">
-          <h3 className="text-xl font-black text-gray-900 mb-2 leading-snug">{demoQuestion.title}</h3>
+          <h2 className="text-xl font-black text-gray-900 mb-2 leading-snug">{demoQuestion.title}</h2>
           <p className="text-xs font-bold text-emerald-600 bg-emerald-50 inline-block px-2.5 py-1 rounded-lg">
             {demoQuestion.description}
           </p>

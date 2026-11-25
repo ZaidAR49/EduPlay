@@ -1,69 +1,31 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Tajawal } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { config } from "@/lib/config"
-import uiContent from "@/data/ui-content-general.json"
 import { Toaster } from "sonner"
 import { getCurrentUser } from "@/lib/auth/rbac"
 import { PosthogIdentify } from "@/components/shared/PosthogIdentify"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { cookies } from "next/headers"
 import { LanguageProvider } from "@/lib/i18n/LanguageContext"
 import { HtmlDirSync } from "@/components/shared/HtmlDirSync"
-import { LOCALE_STORAGE_KEY, type Locale } from "@/lib/i18n"
+import { buildRootMetadata, getRequestLocale } from "@/lib/seo"
 import "./globals.css"
 
-const tajawal = Tajawal({ subsets: ["arabic"], weight: ["300", "400", "500", "700"] })
+const tajawal = Tajawal({
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "700"],
+  display: "swap",
+})
 
-export const metadata: Metadata = {
-  title: {
-    default: `${uiContent.app.name} - ${uiContent.app.organizationName}`,
-    template: `%s | ${uiContent.app.name}`,
-  },
-  description: uiContent.home.description,
-  keywords: [
-    "لعبة تفاعلية",
-    "تعليمية",
-    "اختبار معلومات",
-    "تنمية مهارات",
-    "أسئلة وأجوبة",
-    uiContent.app.name,
-    uiContent.app.organizationName
-  ],
-  authors: [{ name: uiContent.app.organizationName }],
-  creator: uiContent.app.organizationName,
-  openGraph: {
-    type: "website",
-    locale: "ar_SA",
-    title: `${uiContent.app.name} - ${uiContent.app.organizationName}`,
-    description: uiContent.home.description,
-    siteName: uiContent.app.name,
-    images: [
-      {
-        url: uiContent.app.logoUrl,
-        width: 1200,
-        height: 630,
-        alt: `${uiContent.app.name} Logo`,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${uiContent.app.name} - ${uiContent.app.organizationName}`,
-    description: uiContent.home.description,
-    images: [uiContent.app.logoUrl],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#059669",
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getRequestLocale()
+  return buildRootMetadata(locale)
 }
 
 export default async function RootLayout({
@@ -71,16 +33,21 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const currentUser = await getCurrentUser()
-  const cookieStore = await cookies()
-  const cookieLocale = cookieStore.get(LOCALE_STORAGE_KEY)?.value as Locale | undefined
-  const initialLocale: Locale = (cookieLocale === "en" || cookieLocale === "ar") ? cookieLocale : "ar"
+  const [currentUser, { locale: initialLocale, hasUrlLocale }] = await Promise.all([
+    getCurrentUser(),
+    getRequestLocale(),
+  ])
   const isRTL = initialLocale === "ar"
 
   return (
-    <html lang={initialLocale} dir={isRTL ? "rtl" : "ltr"} className="bg-gradient-to-br from-emerald-50 to-blue-50" data-scroll-behavior="smooth">
+    <html
+      lang={initialLocale}
+      dir={isRTL ? "rtl" : "ltr"}
+      className="bg-gradient-to-br from-emerald-50 to-blue-50"
+      data-scroll-behavior="smooth"
+    >
       <body className={`${tajawal.className} font-sans antialiased`}>
-        <LanguageProvider initialLocale={initialLocale}>
+        <LanguageProvider initialLocale={initialLocale} forceInitialLocale={hasUrlLocale}>
           <HtmlDirSync />
           {children}
           {currentUser && !currentUser.isLocked && (

@@ -107,9 +107,9 @@ export function HowItWorksSection() {
 
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1.5">
-                      <h4 className={`text-lg font-black transition-colors ${isActive ? "text-gray-900" : "text-gray-700"}`}>
+                      <h3 className={`text-lg font-black transition-colors ${isActive ? "text-gray-900" : "text-gray-700"}`}>
                         {step.title}
-                      </h4>
+                      </h3>
                       {/* Chevron points toward the visual panel */}
                       {isActive && (
                         <>
